@@ -33,4 +33,6 @@ fun framework(name: String, dir: String = name) {
 }
 
 framework("hibernate", "hibernate/hibernate")
+framework("hibernate5", "hibernate/hibernate5")
+framework("hibernate6", "hibernate/hibernate6")
 framework("hibernate-reactive", "hibernate/hibernate-reactive")
