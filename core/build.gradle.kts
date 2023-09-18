@@ -3,5 +3,5 @@ plugins {
 }
 
 dependencies{
-    implementation("com.IceCreamQAQ:Yu-Core:0.4.0")
+    api("jakarta.persistence:jakarta.persistence-api:3.0.0")
 }

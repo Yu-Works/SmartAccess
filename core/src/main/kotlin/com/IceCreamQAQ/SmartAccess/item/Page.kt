@@ -6,6 +6,8 @@ data class Page(
 ) {
 
     companion object {
+        val single = Page(0, 1)
+
         fun page(pIndex: Int, pSize: Int) = Page((pIndex - 1) * pSize, pSize)
     }
 

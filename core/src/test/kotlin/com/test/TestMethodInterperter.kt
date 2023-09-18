@@ -1,6 +1,6 @@
 package com.test
 
-import com.IceCreamQAQ.SmartAccess.dao.interpreter.MethodInterpreter
+import com.IceCreamQAQ.SmartAccess.access.interpreter.MethodInterpreter
 
 fun main() {
     val queries = arrayOf(

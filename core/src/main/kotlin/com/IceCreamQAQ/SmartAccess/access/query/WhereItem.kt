@@ -1,4 +1,4 @@
-package com.IceCreamQAQ.SmartAccess.dao.interpreter.query
+package com.IceCreamQAQ.SmartAccess.access.query
 
 data class WhereItem(
     val key: String,

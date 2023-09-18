@@ -1,9 +1,8 @@
-package com.IceCreamQAQ.SmartAccess.dao.interpreter
+package com.IceCreamQAQ.SmartAccess.access.interpreter
 
-import com.IceCreamQAQ.SmartAccess.dao.interpreter.query.AbstractQuery
-import com.IceCreamQAQ.SmartAccess.dao.interpreter.query.OrderByItem
-import com.IceCreamQAQ.SmartAccess.dao.interpreter.query.WhereItem
-import java.lang.reflect.Method
+import com.IceCreamQAQ.SmartAccess.access.query.AbstractQuery
+import com.IceCreamQAQ.SmartAccess.access.query.OrderByItem
+import com.IceCreamQAQ.SmartAccess.access.query.WhereItem
 
 object MethodInterpreter {
 
