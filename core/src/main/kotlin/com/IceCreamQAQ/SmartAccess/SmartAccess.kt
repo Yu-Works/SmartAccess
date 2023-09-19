@@ -42,6 +42,8 @@ class SmartAccess(
             val dbService = context.getBean(DBService::class.java, provider)
                 ?: error("数据库 $key 指定的服务提供者 $provider 不存在或无法创建。")
             dbServiceMap[key] = dbService
+
+            dbService.initDatabase(key, value)
         }
 
         defaultService = dbServiceMap["default"]
