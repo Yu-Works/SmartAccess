@@ -1,9 +1,11 @@
 package com.IceCreamQAQ.SmartAccess.jpa.access
 
 import com.IceCreamQAQ.SmartAccess.access.Access
+import com.IceCreamQAQ.SmartAccess.access.interpreter.MethodInterpreter
 import com.IceCreamQAQ.SmartAccess.item.Page
 import com.IceCreamQAQ.SmartAccess.jdbc.access.JDBCPageAble
 import com.IceCreamQAQ.SmartAccess.jdbc.annotation.Execute
+import com.IceCreamQAQ.SmartAccess.jdbc.annotation.Select
 import com.IceCreamQAQ.SmartAccess.jpa.JPAService
 import com.IceCreamQAQ.Yu.allMethod
 import com.IceCreamQAQ.Yu.annotation
@@ -45,10 +47,12 @@ object JpaAccessMaker {
 
     private val stringDescriptor = Type.getDescriptor(String::class.java)
     private val classDescriptor = Type.getDescriptor(Class::class.java)
+    private val objectDescriptor = Type.getDescriptor(Any::class.java)
+    private val listDescriptor = Type.getDescriptor(List::class.java)
 
     operator fun invoke(
         implAccess: Class<*>,
-        access: Class<Access<*, *>>,
+        access: Class<*>,
         moduleType: Class<*>,
         primaryKeyType: Class<*>
     ): ByteArray {
@@ -62,7 +66,7 @@ object JpaAccessMaker {
         cw.visit(
             V1_8,
             ACC_PUBLIC,
-            "$accessOwner\$Impl",
+            "${accessOwner}Impl",
             null,
             implOwner,
             arrayOf(accessOwner)
@@ -85,14 +89,14 @@ object JpaAccessMaker {
                     visitVarInsn(ALOAD, 3)
                     visitVarInsn(ALOAD, 4)
                     visitMethodInsn(
-                        Opcodes.INVOKESPECIAL,
+                        INVOKESPECIAL,
                         implOwner,
                         "<init>",
                         constructorDescriptor,
                         false
                     )
-                    visitInsn(Opcodes.RETURN)
-                    visitMaxs(1, 1)
+                    visitInsn(RETURN)
+                    visitMaxs(5, 5)
                     visitEnd()
                 }
         }
@@ -110,8 +114,9 @@ object JpaAccessMaker {
                 val realType = if (isList) returnRelType.generics!![0].realClass else returnRelType.realClass
                 val isModel = realType == moduleType
 
-                val queryIndex = method.parameterCount
+                val queryIndex = method.parameterCount + 1
 
+                // 创建执行 SQL 的函数方法体
                 fun MethodVisitor.makeExecute(query: String) {
                     visitVarInsn(ALOAD, 0)
                     visitLdcInsn(query)
@@ -134,7 +139,7 @@ object JpaAccessMaker {
                             INVOKEVIRTUAL,
                             queryOwner,
                             "setParameter",
-                            "(ILjava/lang/Object;)L$queryOwner;",
+                            "(ILjava/lang/Object;)$queryOwner",
                             false
                         )
                     }
@@ -143,6 +148,7 @@ object JpaAccessMaker {
                     visitInsn(IRETURN)
                 }
 
+                // 创建查询 SQL 的函数方法体
                 fun MethodVisitor.makeSelect(query: String) {
                     if (!isModel) error("暂不支持非 Model 的返回值类型。")
 
@@ -151,9 +157,10 @@ object JpaAccessMaker {
 
                     visitVarInsn(ALOAD, 0)
                     visitLdcInsn(query)
+                    visitLdcInsn(Type.getType(access))
                     visitMethodInsn(
                         INVOKEVIRTUAL,
-                        implOwner,
+                        accessOwner,
                         "typedQuery",
                         "($stringDescriptor$classDescriptor)$typedQueryDescriptor",
                         false
@@ -163,12 +170,12 @@ object JpaAccessMaker {
                     for (i in 0..<paramCount) {
                         visitVarInsn(ALOAD, queryIndex)
                         visitIntInsn(i)
-                        method.parameters[i].type.name.let { type ->
+                        Type.getDescriptor(method.parameters[i].type).let { type ->
                             visitVarInsn(getLoad(type), i + 1)
                             // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
                             if (type.length == 1)
                                 getTyped(type).let { typed ->
-                                    visitMethodInsn(INVOKEINTERFACE, typed, "valueOf", "($type)L$typed;", true)
+                                    visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
                                 }
 
                         }
@@ -176,7 +183,7 @@ object JpaAccessMaker {
                             INVOKEINTERFACE,
                             typedQueryOwner,
                             "setParameter",
-                            "(ILjava/lang/Object;)L$typedQueryDescriptor;",
+                            "(ILjava/lang/Object;)$typedQueryDescriptor",
                             true
                         )
                     }
@@ -205,12 +212,34 @@ object JpaAccessMaker {
                         )
                     }
 
+                    visitVarInsn(ALOAD, queryIndex)
+                    if (isList)
+                        visitMethodInsn(INVOKEINTERFACE, queryOwner, "getResultList", "()$listDescriptor", true)
+                    else
+                        visitMethodInsn(INVOKEINTERFACE, queryOwner, "getSingleResult", "()$objectDescriptor", true)
+                    visitInsn(ARETURN)
+
+                    visitMaxs(queryIndex + 1,5)
+                    visitEnd()
                 }
 
-                method.annotation<Execute> { }
+                fun makeMethod(): MethodVisitor {
+                    return cw.visitMethod(ACC_PUBLIC, method.name, Type.getMethodDescriptor(method), null, null)
+                }
+                method.annotation<Execute> {
+                    makeMethod().makeExecute(value)
+                }
+                method.annotation<Select> {
+                    makeMethod().makeSelect(value)
+                }
+                val absQuery = MethodInterpreter(method.name)
+                absQuery.toString().let {
+                    makeMethod().apply {
+                        if (absQuery.queryType < 5) makeSelect(it)
+                        else makeExecute(it)
+                    }
+                }
             }
-
-
 
         cw.visitEnd()
         return cw.toByteArray()
