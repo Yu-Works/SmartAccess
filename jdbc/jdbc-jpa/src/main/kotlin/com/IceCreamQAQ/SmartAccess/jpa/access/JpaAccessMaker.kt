@@ -11,10 +11,8 @@ import com.IceCreamQAQ.Yu.allMethod
 import com.IceCreamQAQ.Yu.annotation
 import com.IceCreamQAQ.Yu.fullName
 import com.IceCreamQAQ.Yu.hasAnnotation
-import com.IceCreamQAQ.Yu.util.getLoad
-import com.IceCreamQAQ.Yu.util.getTyped
+import com.IceCreamQAQ.Yu.util.*
 import com.IceCreamQAQ.Yu.util.type.RelType
-import com.IceCreamQAQ.Yu.util.visitIntInsn
 import jakarta.persistence.Query
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor
@@ -57,6 +55,7 @@ object JpaAccessMaker {
         primaryKeyType: Class<*>
     ): ByteArray {
         val accessOwner = access.internalName
+        val accessDescriptor           = Type.getDescriptor(access)
         val implOwner = implAccess.internalName
 
         val modelDescriptor = Type.getDescriptor(moduleType)
@@ -116,6 +115,8 @@ object JpaAccessMaker {
 
                 val queryIndex = method.parameterCount + 1
 
+                val returnTypeDescription = Type.getDescriptor(method.returnType)
+
                 // 创建执行 SQL 的函数方法体
                 fun MethodVisitor.makeExecute(query: String) {
                     visitVarInsn(ALOAD, 0)
@@ -131,21 +132,24 @@ object JpaAccessMaker {
                             // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
                             if (type.length == 1)
                                 getTyped(type).let { typed ->
-                                    visitMethodInsn(INVOKEINTERFACE, typed, "valueOf", "($type)L$typed;", true)
+                                    visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
                                 }
 
                         }
                         visitMethodInsn(
-                            INVOKEVIRTUAL,
+                            INVOKEINTERFACE,
                             queryOwner,
                             "setParameter",
                             "(ILjava/lang/Object;)$queryOwner",
-                            false
+                            true
                         )
                     }
                     visitVarInsn(ALOAD, queryIndex)
                     visitMethodInsn(INVOKEINTERFACE, queryOwner, "executeUpdate", "()I", true)
                     visitInsn(IRETURN)
+
+                    visitMaxs(queryIndex + 1, 4)
+                    visitEnd()
                 }
 
                 // 创建查询 SQL 的函数方法体
@@ -217,7 +221,8 @@ object JpaAccessMaker {
                         visitMethodInsn(INVOKEINTERFACE, queryOwner, "getResultList", "()$listDescriptor", true)
                     else
                         visitMethodInsn(INVOKEINTERFACE, queryOwner, "getSingleResult", "()$objectDescriptor", true)
-                    visitInsn(ARETURN)
+                    makeCast(this, returnTypeDescription)
+                    visitInsn(getReturn(returnTypeDescription))
 
                     visitMaxs(queryIndex + 1,5)
                     visitEnd()
