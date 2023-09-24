@@ -5,5 +5,5 @@ import com.IceCreamQAQ.Yu.annotation.LoadBy
 import java.lang.reflect.ParameterizedType
 
 @ProvideAccessTemple
-@LoadBy(AccessLoader::class)
+@LoadBy(AccessLoader::class, mastBean = false)
 interface Access<T, PK>
