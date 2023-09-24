@@ -39,7 +39,7 @@ class SmartAccess(
                 ?: defaultProvider
                 ?: error("数据库 $key 没有配置对应的服务提供者，且未提供公共提供者配置项（db.provider）。")
 
-            val dbService = context.getBean(DBService::class.java, provider)
+            val dbService = runCatching { context.getBean(Class.forName(provider)) as DBService }.getOrNull()
                 ?: error("数据库 $key 指定的服务提供者 $provider 不存在或无法创建。")
             dbServiceMap[key] = dbService
 
@@ -77,6 +77,5 @@ class SmartAccess(
             service.close()
         }
     }
-
 
 }
