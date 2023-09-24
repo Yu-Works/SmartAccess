@@ -17,7 +17,8 @@ object JDBCPool {
             } catch (_: Exception) {
             }
         }
-        error("没有引入任何受支持的连接池类型！请引入以下连接池之一：${supportPools.keys.joinToString(", ")}")
+        if (!::supportPool.isInitialized)
+            error("没有引入任何受支持的连接池类型！请引入以下连接池之一：${supportPools.keys.joinToString(", ")}")
     }
 
 }

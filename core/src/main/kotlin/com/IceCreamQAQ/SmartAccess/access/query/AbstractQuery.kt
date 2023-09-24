@@ -6,7 +6,7 @@ class AbstractQuery(
     val wheres: List<WhereItem>,
     val orderBys: List<OrderByItem>
 ) {
-    override fun toString(): String {
+    fun toSqlString(table: String): String {
         val query = StringBuilder()
         when (queryType) {
             1 -> query.append("select ${if (optParams.isEmpty()) "*" else optParams.joinToString(", ")} from")
@@ -14,6 +14,7 @@ class AbstractQuery(
             5 -> query.append("update set").apply { optParams.joinToString(", ") { "$it = ?" } }
             8 -> query.append("delete from")
         }
+        query.append(' ').append(table)
         if (wheres.isNotEmpty()) {
             query.append(" where")
             wheres.forEach {

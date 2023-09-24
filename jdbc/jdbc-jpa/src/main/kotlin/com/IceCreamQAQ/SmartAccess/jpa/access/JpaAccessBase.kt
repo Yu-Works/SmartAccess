@@ -16,7 +16,7 @@ import java.sql.Connection
 
 open class JpaAccessBase<T, PK : Serializable>(
     var context: JpaContext,
-    var pageable: JDBCPageAble,
+    var pageable: JDBCPageAble?,
     var modelType: Class<T>,
     var primaryKeyType: Class<PK>
 ) : JpaAccess<T, PK> {

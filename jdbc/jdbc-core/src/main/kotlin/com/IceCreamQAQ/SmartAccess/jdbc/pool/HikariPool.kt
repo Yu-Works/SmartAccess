@@ -14,8 +14,8 @@ object HikariPool:SupportPool {
         hc.username = db["username"]?.asString() ?: error("数据库 $name 配置错误，缺少 username。")
         hc.password = db["password"]?.asString() ?: error("数据库 $name 配置错误，缺少 password。")
         hc.driverClassName = db["driver"]?.asString() ?: error("数据库 $name 配置错误，缺少 driver。")
-        hc.maximumPoolSize = db["poolMax"]?.asInt() ?: error("数据库 $name 配置错误，缺少 poolMax。")
-        hc.minimumIdle = db["poolIdle"]?.asInt() ?: error("数据库 $name 配置错误，缺少 poolIdle。")
+        hc.maximumPoolSize = db["poolMax"]?.asInt() ?: 10
+        hc.minimumIdle = db["poolIdle"]?.asInt() ?: 2
         hc.connectionTimeout = 30 * 1000
         hc.isAutoCommit = false
         hc.isReadOnly = false
