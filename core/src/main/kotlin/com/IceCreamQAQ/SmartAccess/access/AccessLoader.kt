@@ -53,4 +53,6 @@ class AccessLoader(
         return providers
     }
 
+    override fun priority() = 5
+
 }
