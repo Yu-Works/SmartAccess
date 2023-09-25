@@ -66,7 +66,7 @@ object JpaAccessMaker {
         cw.visit(
             V1_8,
             ACC_PUBLIC,
-            "${accessOwner}Impl",
+            "${accessOwner}\$Impl",
             null,
             implOwner,
             arrayOf(accessOwner)

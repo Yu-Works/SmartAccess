@@ -57,7 +57,7 @@ abstract class JPAService(
             modelClass,
             primaryType
         )
-        val classAccess = appClassloader.define(accessClass.name + "Impl", classByte)
+        val classAccess = appClassloader.define(accessClass.name + "\$Impl", classByte)
         return classAccess.getConstructor(
             JpaContext::class.java,
             JDBCPageAble::class.java,
