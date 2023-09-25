@@ -1,5 +1,6 @@
 package com.IceCreamQAQ.SmartAccess.jpa
 
+import com.IceCreamQAQ.SmartAccess.DBContext
 import com.IceCreamQAQ.SmartAccess.DBService
 import com.IceCreamQAQ.SmartAccess.access.Access
 import com.IceCreamQAQ.SmartAccess.access.AccessMetadataProvider
@@ -29,7 +30,7 @@ abstract class JPAService(
     val dataSourceMap = HashMap<String, DataSource>()
     val entityManagerFactoryMap = HashMap<String, EntityManagerFactory>()
 
-    val context = JpaContext(entityManagerFactoryMap)
+    override val context = JpaContext(entityManagerFactoryMap)
 
     override fun initDatabase(name: String, config: ObjectNode) {
         databaseMap[name] = config

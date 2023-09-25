@@ -1,5 +1,7 @@
 package com.IceCreamQAQ.SmartAccess.hibernate.test
 
+import com.IceCreamQAQ.SmartAccess.annotation.Transactional
+import com.IceCreamQAQ.SmartAccess.hibernate.test.model.Student
 import com.IceCreamQAQ.SmartAccess.hibernate.test.model.StudentAccess
 import com.IceCreamQAQ.Yu.FullStackApplicationLauncher
 import com.IceCreamQAQ.Yu.annotation.Event
@@ -14,8 +16,10 @@ class TestListener {
     lateinit var studentAccess : StudentAccess
 
     @Event
+    @Transactional
     fun AppStartEvent.onEvent() {
-        println(studentAccess.findAll())
+//        studentAccess.save(Student(name = "1", age = 1))
+        println(studentAccess.findByAge(1))
     }
 
 }

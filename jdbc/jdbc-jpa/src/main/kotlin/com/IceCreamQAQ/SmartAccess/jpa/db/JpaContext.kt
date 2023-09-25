@@ -1,9 +1,11 @@
 package com.IceCreamQAQ.SmartAccess.jpa.db
 
+import com.IceCreamQAQ.SmartAccess.DBContext
+import com.IceCreamQAQ.SmartAccess.db.transaction.DBTransaction
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 
-class JpaContext(private val emfMap: HashMap<String, EntityManagerFactory>) {
+class JpaContext(private val emfMap: HashMap<String, EntityManagerFactory>) : DBContext {
 
     private val jpaConnectionMap = HashMap<String, ThreadLocal<EntityManager>>()
 
@@ -29,6 +31,14 @@ class JpaContext(private val emfMap: HashMap<String, EntityManagerFactory>) {
             em.close()
         }
         emtl.remove()
+    }
+
+    override fun beginTransactionSync(database: String): DBTransaction {
+        return JpaTransaction(getEntityManager(database).transaction.apply { begin() })
+    }
+
+    override fun beginTransactionAsync(database: String): DBTransaction {
+        TODO("Not yet implemented")
     }
 
 }

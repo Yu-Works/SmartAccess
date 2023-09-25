@@ -16,5 +16,5 @@ annotation class MetadataProvider(val value: KClass<out AccessMetadataProvider>)
 
 annotation class ProvideAccessTemple
 
-@HookBy("com.IceCreamQAQ.SmartAccess.transaction.TransactionHook")
+@HookBy("com.IceCreamQAQ.SmartAccess.db.transaction.TransactionHook")
 annotation class Transactional(val dbList: Array<String> = ["default"])

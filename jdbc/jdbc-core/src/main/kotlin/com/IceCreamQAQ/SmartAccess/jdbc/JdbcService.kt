@@ -1,5 +1,6 @@
 package com.IceCreamQAQ.SmartAccess.jdbc
 
+import com.IceCreamQAQ.SmartAccess.DBContext
 import com.IceCreamQAQ.SmartAccess.DBService
 import com.IceCreamQAQ.SmartAccess.access.Access
 import com.IceCreamQAQ.SmartAccess.access.AccessMetadataProvider
@@ -28,6 +29,8 @@ class JdbcService(@Config db: ObjectNode) : DBService {
         )
     )
     var connectMap = HashMap<String, DataSource>()
+    override val context: DBContext
+        get() = TODO("Not yet implemented")
 
     override fun initDatabase(name: String, config: ObjectNode) {
         connectMap[name] = JDBCPool.supportPool.createDataSource(name, config)
