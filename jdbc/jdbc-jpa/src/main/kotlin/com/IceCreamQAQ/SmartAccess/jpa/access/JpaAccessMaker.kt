@@ -14,6 +14,7 @@ import com.IceCreamQAQ.Yu.hasAnnotation
 import com.IceCreamQAQ.Yu.util.*
 import com.IceCreamQAQ.Yu.util.type.RelType
 import jakarta.persistence.Query
+import jakarta.persistence.TypedQuery
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
@@ -37,8 +38,8 @@ object JpaAccessMaker {
     private val queryOwner = Type.getInternalName(Query::class.java)
     private val queryDescriptor = Type.getDescriptor(Query::class.java)
 
-    private val typedQueryOwner = Type.getInternalName(Query::class.java)
-    private val typedQueryDescriptor = Type.getDescriptor(Query::class.java)
+    private val typedQueryOwner = Type.getInternalName(TypedQuery::class.java)
+    private val typedQueryDescriptor = Type.getDescriptor(TypedQuery::class.java)
 
     private val baseMethods = JpaAccess::class.java.allMethod.map { it.name }
 
@@ -161,10 +162,10 @@ object JpaAccessMaker {
 
                     visitVarInsn(ALOAD, 0)
                     visitLdcInsn(query)
-                    visitLdcInsn(Type.getType(access))
+                    visitLdcInsn(Type.getType(moduleType))
                     visitMethodInsn(
                         INVOKEVIRTUAL,
-                        accessOwner,
+                        implOwner,
                         "typedQuery",
                         "($stringDescriptor$classDescriptor)$typedQueryDescriptor",
                         false
@@ -238,7 +239,7 @@ object JpaAccessMaker {
                     makeMethod().makeSelect(value)
                 }
                 val absQuery = MethodInterpreter(method.name)
-                absQuery.toString().let {
+                absQuery.toSqlString(moduleType.simpleName).let {
                     makeMethod().apply {
                         if (absQuery.queryType < 5) makeSelect(it)
                         else makeExecute(it)
