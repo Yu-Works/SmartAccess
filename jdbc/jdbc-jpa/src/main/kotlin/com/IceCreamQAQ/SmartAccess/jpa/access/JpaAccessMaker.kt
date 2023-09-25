@@ -239,7 +239,7 @@ object JpaAccessMaker {
                     makeMethod().makeSelect(value)
                 }
                 val absQuery = MethodInterpreter(method.name)
-                absQuery.toSqlString(moduleType.simpleName).let {
+                absQuery.toSqlString(moduleType.simpleName, needSelect = false, needIndex = true).let {
                     makeMethod().apply {
                         if (absQuery.queryType < 5) makeSelect(it)
                         else makeExecute(it)
