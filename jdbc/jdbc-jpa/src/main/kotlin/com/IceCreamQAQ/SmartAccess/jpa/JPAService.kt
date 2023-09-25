@@ -15,6 +15,7 @@ import com.IceCreamQAQ.Yu.util.dataNode.ObjectNode
 import jakarta.persistence.Entity
 import jakarta.persistence.EntityManagerFactory
 import jakarta.persistence.Table
+import java.io.File
 import javax.inject.Named
 import javax.sql.DataSource
 
@@ -58,6 +59,7 @@ abstract class JPAService(
             primaryType
         )
         val classAccess = appClassloader.define(accessClass.name + "\$Impl", classByte)
+        File("tmp/classOutput/" + accessClass.name + "\$Impl.class").writeBytes(classByte)
         return classAccess.getConstructor(
             JpaContext::class.java,
             JDBCPageAble::class.java,
