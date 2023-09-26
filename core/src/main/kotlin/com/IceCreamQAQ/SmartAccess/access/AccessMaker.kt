@@ -1,30 +1,123 @@
 package com.IceCreamQAQ.SmartAccess.access
 
+import com.IceCreamQAQ.SmartAccess.ServiceAccessMaker
+import com.IceCreamQAQ.SmartAccess.access.interpreter.MethodInterpreter
+import com.IceCreamQAQ.SmartAccess.item.Page
+import com.IceCreamQAQ.Yu.allMethod
+import com.IceCreamQAQ.Yu.fullName
+import com.IceCreamQAQ.Yu.hasAnnotation
+import com.IceCreamQAQ.Yu.util.type.RelType
 import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
+import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.jvm.javaConstructor
+import kotlin.reflect.jvm.kotlinFunction
 
 object AccessMaker {
 
-    private val Class<*>.internalName get() = Type.getInternalName(this)
+    val Class<*>.internalName get() = Type.getInternalName(this)!!
+    val Class<*>.descriptor get() = Type.getDescriptor(this)!!
 
-    fun <T> make(dao: Class<T>, daoImplClass: Class<*>): ByteArray {
-        val di = dao.internalName
-        val dii = daoImplClass.internalName
+    val pageOwner = Page::class.java.internalName
+    val pageDescriptor = Page::class.java.descriptor
+
+    val stringDescriptor = String::class.java.descriptor
+    val classDescriptor = Class::class.java.descriptor
+    val objectDescriptor = Any::class.java.descriptor
+    val listDescriptor = List::class.java.descriptor
+
+    operator fun invoke(
+        implAccess: Class<*>,
+        access: Class<*>,
+        moduleType: Class<*>,
+        primaryKeyType: Class<*>,
+        serviceAccessMaker: ServiceAccessMaker
+    ): ByteArray {
+        val accessOwner = access.internalName
+        val accessDescriptor = access.descriptor
+        val implOwner = implAccess.internalName
+
+        val modelDescriptor = moduleType.descriptor
+        val pkDescriptor = primaryKeyType.descriptor
+
         val cw = ClassWriter(0)
         cw.visit(
             V1_8,
             ACC_PUBLIC,
-            "$di\$Impl",
+            "${accessOwner}\$Impl",
             null,
-            dii,
-            arrayOf(di)
+            implOwner,
+            arrayOf(accessOwner)
         )
+
+        val isKotlin = access.hasAnnotation<Metadata>()
+        val kAccess = access.kotlin
+
+
+        // 构造函数
+        val constructorDescriptor =
+            Type.getConstructorDescriptor(implAccess.kotlin.primaryConstructor!!.javaConstructor!!)
+
+        serviceAccessMaker.run {
+            cw.visitMethod(ACC_PUBLIC, "<init>", constructorDescriptor, null, null)
+                .makeConstructor(implAccess, access, moduleType, primaryKeyType, constructorDescriptor)
+
+
+            access.allMethod.filter { it.name !in serviceAccessMaker.baseMethods }
+                .forEach { method ->
+
+                    val returnRelType = RelType.create(method.genericReturnType)
+                    if (returnRelType.realClass.isArray) error("方法 ${method.fullName} 返回值不能为数组！请使用 List 接受返回值！")
+                    val isList = List::class.java.isAssignableFrom(returnRelType.realClass)
+                    if (isList && returnRelType.realClass != List::class.java) error("方法 ${method.fullName} 只能接受 List 类型！不能接受 List 其子类型！")
+                    if (isList && returnRelType.generics == null) error("方法 ${method.fullName} 返回值为 List 时必须指定泛型类型！")
+
+                    val realType = if (isList) returnRelType.generics!![0].realClass else returnRelType.realClass
+                    val isModel = realType == moduleType
+
+                    fun makeMethod(): MethodVisitor {
+                        return cw.visitMethod(ACC_PUBLIC, method.name, Type.getMethodDescriptor(method), null, null)
+                    }
+                    method.haveExecute()?.let {
+                        makeMethod().makeExecute(method, implAccess, access, moduleType, primaryKeyType, it)
+                    } ?: method.haveSelect()?.let {
+                        makeMethod().makeSelect(
+                            method,
+                            implAccess,
+                            access,
+                            moduleType,
+                            primaryKeyType,
+                            it,
+                            isList,
+                            isModel,
+                            realType
+                        )
+                    } ?: run {
+                        MethodInterpreter(method.name).let { absQuery ->
+                            absQuery.serialize(moduleType).let {
+                                makeMethod().apply {
+                                    if (absQuery.queryType < 5) makeSelect(
+                                        method,
+                                        implAccess,
+                                        access,
+                                        moduleType,
+                                        primaryKeyType,
+                                        it,
+                                        isList,
+                                        isModel,
+                                        realType
+                                    ) else makeExecute(method, implAccess, access, moduleType, primaryKeyType, it)
+                                }
+                            }
+                        }
+                    }
+                }
+        }
 
         cw.visitEnd()
         return cw.toByteArray()
     }
-
-
 
 }

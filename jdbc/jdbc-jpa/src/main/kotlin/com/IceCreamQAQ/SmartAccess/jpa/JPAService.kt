@@ -3,6 +3,7 @@ package com.IceCreamQAQ.SmartAccess.jpa
 import com.IceCreamQAQ.SmartAccess.DBContext
 import com.IceCreamQAQ.SmartAccess.DBService
 import com.IceCreamQAQ.SmartAccess.access.Access
+import com.IceCreamQAQ.SmartAccess.access.AccessMaker
 import com.IceCreamQAQ.SmartAccess.access.AccessMetadataProvider
 import com.IceCreamQAQ.SmartAccess.jdbc.access.JDBCPageAble
 import com.IceCreamQAQ.SmartAccess.jdbc.pool.JDBCPool
@@ -52,11 +53,12 @@ abstract class JPAService(
         metadataProvider: AccessMetadataProvider
     ): Access<*, *> {
         val primaryType = metadataProvider.getAccessPrimaryKeyType(accessClass)
-        val classByte = JpaAccessMaker(
+        val classByte = AccessMaker(
             JpaAccessBase::class.java,
             accessClass,
             modelClass,
-            primaryType
+            primaryType,
+            JpaAccessMaker
         )
         val classAccess = appClassloader.define(accessClass.name + "\$Impl", classByte)
         File("tmp/classOutput/" + accessClass.name + "\$Impl.class").writeBytes(classByte)
