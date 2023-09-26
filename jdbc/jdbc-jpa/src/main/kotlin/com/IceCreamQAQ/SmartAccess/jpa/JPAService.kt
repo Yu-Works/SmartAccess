@@ -1,6 +1,5 @@
 package com.IceCreamQAQ.SmartAccess.jpa
 
-import com.IceCreamQAQ.SmartAccess.DBContext
 import com.IceCreamQAQ.SmartAccess.DBService
 import com.IceCreamQAQ.SmartAccess.access.Access
 import com.IceCreamQAQ.SmartAccess.access.AccessMaker

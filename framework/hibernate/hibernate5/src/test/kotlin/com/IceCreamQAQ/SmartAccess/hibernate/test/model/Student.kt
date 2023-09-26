@@ -1,5 +1,6 @@
 package com.IceCreamQAQ.SmartAccess.hibernate.test.model
 
+import com.IceCreamQAQ.SmartAccess.item.Page
 import com.IceCreamQAQ.SmartAccess.jpa.access.JpaAccess
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
@@ -18,4 +19,5 @@ data class Student(
 interface StudentAccess : JpaAccess<Student, Int> {
     fun findByName(name: String): Student?
     fun findByAge(age: Int): List<Student>
+    fun findByAgeOrderByName(age: Int, page: Page): List<Student>
 }
