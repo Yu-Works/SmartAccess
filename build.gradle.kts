@@ -19,6 +19,6 @@ allprojects {
 
     dependencies {
         implementation(kotlin("stdlib"))
-        implementation("com.IceCreamQAQ:Yu-Core:0.4.0")
+        implementation("com.IceCreamQAQ:Yu-Core:0.5.0")
     }
 }

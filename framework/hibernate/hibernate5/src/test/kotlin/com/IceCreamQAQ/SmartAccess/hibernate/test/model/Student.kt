@@ -20,4 +20,10 @@ interface StudentAccess : JpaAccess<Student, Int> {
     fun findByName(name: String): Student?
     fun findByAge(age: Int): List<Student>
     fun findByAgeOrderByName(age: Int, page: Page): List<Student>
+    fun text() = "World"
+    fun print(text:String? = "world"){
+        println("Hello $text!")
+    }
+//    fun findAllOrderByAgeDesc()
+//    fun countByAge(age: Int): Int
 }

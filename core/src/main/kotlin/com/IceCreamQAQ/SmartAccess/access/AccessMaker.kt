@@ -6,6 +6,9 @@ import com.IceCreamQAQ.SmartAccess.item.Page
 import com.IceCreamQAQ.Yu.allMethod
 import com.IceCreamQAQ.Yu.fullName
 import com.IceCreamQAQ.Yu.hasAnnotation
+import com.IceCreamQAQ.Yu.util.getLoad
+import com.IceCreamQAQ.Yu.util.getReturn
+import com.IceCreamQAQ.Yu.util.getTypedWidth
 import com.IceCreamQAQ.Yu.util.type.RelType
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor
@@ -13,7 +16,6 @@ import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.javaConstructor
-import kotlin.reflect.jvm.kotlinFunction
 
 object AccessMaker {
 
@@ -55,6 +57,8 @@ object AccessMaker {
         val isKotlin = access.hasAnnotation<Metadata>()
         val kAccess = access.kotlin
 
+        val defaultImpl = access.declaredClasses.firstOrNull { it.name == "DefaultImpls" }
+            ?: runCatching { Class.forName("${access.name}\$DefaultImpls") }.getOrNull()
 
         // 构造函数
         val constructorDescriptor =
@@ -65,8 +69,53 @@ object AccessMaker {
                 .makeConstructor(implAccess, access, moduleType, primaryKeyType, constructorDescriptor)
 
 
-            access.allMethod.filter { it.name !in serviceAccessMaker.baseMethods }
+            access.allMethod.asSequence()
+                .filter { !it.isDefault }
+                .filter { it.name !in serviceAccessMaker.baseMethods }
                 .forEach { method ->
+                    fun makeMethod(): MethodVisitor {
+                        return cw.visitMethod(ACC_PUBLIC, method.name, Type.getMethodDescriptor(method), null, null)
+                    }
+
+                    defaultImpl?.let {
+
+                        runCatching {
+                            it.getMethod(
+                                method.name,
+                                *arrayListOf(access).apply { addAll(method.parameterTypes) }.toTypedArray()
+                            )
+                        }.getOrNull()?.let { defaultMethod ->
+
+                            var i = 1
+                            fun getIndex(desc:String):Int{
+                                val c = i
+                                i += getTypedWidth(desc)
+                                return c
+                            }
+                            makeMethod().apply {
+                                visitCode()
+                                visitVarInsn(ALOAD, 0)
+                                method.parameterTypes.forEach{
+                                    it.descriptor.let { desc->
+                                        visitVarInsn(getLoad(desc), getIndex(desc))
+                                    }
+                                }
+                                visitMethodInsn(
+                                    INVOKESTATIC,
+                                    defaultImpl.internalName,
+                                    defaultMethod.name,
+                                    Type.getMethodDescriptor(defaultMethod),
+                                    false
+                                )
+                                if (method.returnType != Void.TYPE) visitInsn(getReturn(method.returnType.descriptor))
+                                else visitInsn(RETURN)
+                                visitMaxs(method.parameterTypes.size + 1, method.parameterTypes.size + 1)
+                                visitEnd()
+                            }
+
+                            return@forEach
+                        }
+                    }
 
                     val returnRelType = RelType.create(method.genericReturnType)
                     if (returnRelType.realClass.isArray) error("方法 ${method.fullName} 返回值不能为数组！请使用 List 接受返回值！")
@@ -77,9 +126,6 @@ object AccessMaker {
                     val realType = if (isList) returnRelType.generics!![0].realClass else returnRelType.realClass
                     val isModel = realType == moduleType
 
-                    fun makeMethod(): MethodVisitor {
-                        return cw.visitMethod(ACC_PUBLIC, method.name, Type.getMethodDescriptor(method), null, null)
-                    }
                     method.haveExecute()?.let {
                         makeMethod().makeExecute(method, implAccess, access, moduleType, primaryKeyType, it)
                     } ?: method.haveSelect()?.let {

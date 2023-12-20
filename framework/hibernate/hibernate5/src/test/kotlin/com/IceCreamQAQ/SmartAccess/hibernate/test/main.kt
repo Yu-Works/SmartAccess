@@ -19,7 +19,7 @@ class TestListener {
     @Transactional
     fun AppStartEvent.onEvent() {
 //        studentAccess.save(Student(name = "2", age = 1))
-        println(studentAccess.findByAgeOrderByName(1, Page(0,1)))
+        studentAccess.print()
     }
 
 }
