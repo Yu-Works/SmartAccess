@@ -24,6 +24,5 @@ interface StudentAccess : JpaAccess<Student, Int> {
     fun print(text:String? = "world"){
         println("Hello $text!")
     }
-//    fun findAllOrderByAgeDesc()
-//    fun countByAge(age: Int): Int
+    fun countByAge(age: Int): Long
 }

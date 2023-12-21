@@ -58,6 +58,12 @@ open class JpaAccessBase<T, PK : Serializable>(
         return typedQuery.singleResult
     }
 
+    override fun count(queryString: String, vararg params: Any?): Long {
+        val query = jpaQuery(queryString)
+        params.forEachIndexed { i, it -> query.setParameter(i, it) }
+        return query.singleResult as Long
+    }
+
     override fun list(queryString: String, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }

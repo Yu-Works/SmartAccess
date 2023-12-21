@@ -30,6 +30,7 @@ interface JpaAccess<T, PK : Serializable> : Access<T, PK> {
     fun findAll(page: Page?): List<T>
 
     fun single(queryString: String, vararg params: Any?): T?
+    fun count(queryString: String, vararg params: Any?): Long
 
     fun list(queryString: String, vararg params: Any?): List<T>
     fun list(queryString: String, page: Page, vararg params: Any?): List<T>

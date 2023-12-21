@@ -72,19 +72,31 @@ object JpaAccessMaker : ServiceAccessMaker {
         val queryIndex = method.parameterCount + 1
         val returnTypeDescription = method.returnType.descriptor
 
-        if (!isModel) error("暂不支持非 Model 的返回值类型。")
+//        if (!isModel) error("暂不支持非 Model 的返回值类型。")
+
+        val (queryFunOwner, queryFunDescriptor) =
+            if (isModel) typedQueryOwner to typedQueryDescriptor
+            else queryOwner to queryDescriptor
 
         val havePage = method.parameters.last().type == Page::class.java
         val paramCount = if (havePage) method.parameterCount - 1 else method.parameterCount
 
         visitVarInsn(ALOAD, 0)
         visitLdcInsn(query)
-        visitLdcInsn(Type.getType(moduleType))
-        visitMethodInsn(
+        if (isModel) {
+            visitLdcInsn(Type.getType(moduleType))
+            visitMethodInsn(
+                INVOKEVIRTUAL,
+                implAccess.internalName,
+                "typedQuery",
+                "($stringDescriptor$classDescriptor)$queryFunDescriptor",
+                false
+            )
+        } else visitMethodInsn(
             INVOKEVIRTUAL,
             implAccess.internalName,
-            "typedQuery",
-            "($stringDescriptor$classDescriptor)$typedQueryDescriptor",
+            "jpaQuery",
+            "($stringDescriptor)$queryFunDescriptor",
             false
         )
         visitVarInsn(ASTORE, queryIndex)
@@ -103,9 +115,9 @@ object JpaAccessMaker : ServiceAccessMaker {
             }
             visitMethodInsn(
                 INVOKEINTERFACE,
-                typedQueryOwner,
+                queryFunOwner,
                 "setParameter",
-                "(ILjava/lang/Object;)$typedQueryDescriptor",
+                "(ILjava/lang/Object;)$queryFunDescriptor",
                 true
             )
         }
@@ -117,9 +129,9 @@ object JpaAccessMaker : ServiceAccessMaker {
             visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getStart", "()I", false)
             visitMethodInsn(
                 INVOKEINTERFACE,
-                typedQueryOwner,
+                queryFunOwner,
                 "setFirstResult",
-                "(I)$typedQueryDescriptor",
+                "(I)$queryFunDescriptor",
                 true
             )
             visitVarInsn(ALOAD, queryIndex)
@@ -127,9 +139,9 @@ object JpaAccessMaker : ServiceAccessMaker {
             visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getNum", "()I", false)
             visitMethodInsn(
                 INVOKEINTERFACE,
-                typedQueryOwner,
+                queryFunOwner,
                 "setMaxResults",
-                "(I)$typedQueryDescriptor",
+                "(I)$queryFunDescriptor",
                 true
             )
         }
