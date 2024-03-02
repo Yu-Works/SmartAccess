@@ -1,9 +1,6 @@
-import com.IceCreamQAQ.SmartAccess.item.Page
-import com.IceCreamQAQ.SmartAccess.jpa.access.JpaAccess
-import com.IceCreamQAQ.SmartAccess.jpa.access.JpaAccessBase
-import com.IceCreamQAQ.SmartAccess.jpa.access.JpaAccessMaker
+import smartaccess.item.Page
+import smartaccess.jpa.access.JpaAccess
 import rain.classloader.AppClassloader
-import java.io.File
 
 
 interface TestAccess : JpaAccess<String, String> {

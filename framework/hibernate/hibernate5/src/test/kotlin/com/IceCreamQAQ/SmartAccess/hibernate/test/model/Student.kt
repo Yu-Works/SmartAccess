@@ -1,7 +1,7 @@
 package com.IceCreamQAQ.SmartAccess.hibernate.test.model
 
-import com.IceCreamQAQ.SmartAccess.item.Page
-import com.IceCreamQAQ.SmartAccess.jpa.access.JpaAccess
+import smartaccess.item.Page
+import smartaccess.jpa.access.JpaAccess
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
