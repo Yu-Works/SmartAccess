@@ -1,8 +1,7 @@
 package com.IceCreamQAQ.SmartAccess.access
 
 import com.IceCreamQAQ.SmartAccess.annotation.ProvideAccessTemple
-import com.IceCreamQAQ.Yu.annotation.LoadBy
-import java.lang.reflect.ParameterizedType
+import rain.api.annotation.LoadBy
 
 @ProvideAccessTemple
 @LoadBy(AccessLoader::class, mastBean = false)

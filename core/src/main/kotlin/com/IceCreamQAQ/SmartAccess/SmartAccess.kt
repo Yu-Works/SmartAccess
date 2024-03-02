@@ -2,17 +2,17 @@ package com.IceCreamQAQ.SmartAccess
 
 import com.IceCreamQAQ.SmartAccess.annotation.Database
 import com.IceCreamQAQ.SmartAccess.annotation.Model
-import com.IceCreamQAQ.Yu.annotation
-import com.IceCreamQAQ.Yu.annotation.Config
-import com.IceCreamQAQ.Yu.`as`.ApplicationService
-import com.IceCreamQAQ.Yu.di.YuContext
-import com.IceCreamQAQ.Yu.loader.ClassRegister
-import com.IceCreamQAQ.Yu.util.dataNode.ObjectNode
-import com.IceCreamQAQ.Yu.util.dataNode.StringNode
+import rain.api.di.DiContext
+import rain.api.loader.ApplicationService
+import rain.application.loader.ClassRegister
+import rain.di.Config
+import rain.function.annotation
+import rain.function.dataNode.ObjectNode
+import rain.function.dataNode.StringNode
 
 class SmartAccess(
     @Config("db") dbNode: ObjectNode,
-    val context: YuContext
+    val context: DiContext
 ) : ApplicationService, ClassRegister {
 
     val dbServiceMap: Map<String, DBService>
@@ -48,6 +48,10 @@ class SmartAccess(
 
         defaultService = dbServiceMap["default"]
         this.dbServiceMap = dbServiceMap
+
+        dbServiceMap.forEach { (name, service) ->
+            service.startDatabase(name, dbModuleMap[name] ?: ArrayList())
+        }
     }
 
     override fun register(clazz: Class<*>) {
@@ -61,12 +65,6 @@ class SmartAccess(
         }
         if (defaultService?.isModel(clazz) == true) {
             dbModuleMap.getOrPut("default") { ArrayList() }.add(clazz)
-        }
-    }
-
-    override fun init() {
-        dbServiceMap.forEach { (name, service) ->
-            service.startDatabase(name, dbModuleMap[name] ?: ArrayList())
         }
     }
 

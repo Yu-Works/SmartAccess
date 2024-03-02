@@ -4,14 +4,14 @@ import com.IceCreamQAQ.SmartAccess.SmartAccess
 import com.IceCreamQAQ.SmartAccess.annotation.Database
 import com.IceCreamQAQ.SmartAccess.annotation.MetadataProvider
 import com.IceCreamQAQ.SmartAccess.annotation.ProvideAccessTemple
-import com.IceCreamQAQ.Yu.annotation
-import com.IceCreamQAQ.Yu.di.YuContext
-import com.IceCreamQAQ.Yu.hasAnnotation
-import com.IceCreamQAQ.Yu.loader.LoadItem
-import com.IceCreamQAQ.Yu.loader.Loader
+import rain.api.di.DiContext
+import rain.api.loader.LoadItem
+import rain.api.loader.Loader
+import rain.function.annotation
+import rain.function.hasAnnotation
 
 class AccessLoader(
-    val context: YuContext,
+    val context: DiContext,
     val sa: SmartAccess
 ) : Loader {
 

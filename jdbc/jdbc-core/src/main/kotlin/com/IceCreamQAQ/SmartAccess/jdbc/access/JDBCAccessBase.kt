@@ -3,8 +3,8 @@ package com.IceCreamQAQ.SmartAccess.jdbc.access
 import com.IceCreamQAQ.SmartAccess.annotation.Database
 import com.IceCreamQAQ.SmartAccess.item.Page
 import com.IceCreamQAQ.SmartAccess.jdbc.db.JdbcContext
-import com.IceCreamQAQ.Yu.annotation
 import jakarta.persistence.Table
+import rain.function.annotation
 import java.io.Serializable
 import java.sql.Connection
 

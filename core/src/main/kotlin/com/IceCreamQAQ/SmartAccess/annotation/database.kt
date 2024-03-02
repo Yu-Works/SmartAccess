@@ -1,7 +1,7 @@
 package com.IceCreamQAQ.SmartAccess.annotation
 
 import com.IceCreamQAQ.SmartAccess.access.AccessMetadataProvider
-import com.IceCreamQAQ.Yu.annotation.HookBy
+import rain.hook.HookBy
 import kotlin.reflect.KClass
 
 @Target(AnnotationTarget.CLASS)

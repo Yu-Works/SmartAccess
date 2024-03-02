@@ -1,6 +1,6 @@
 package com.IceCreamQAQ.SmartAccess.jdbc.pool
 
-import com.IceCreamQAQ.Yu.util.dataNode.ObjectNode
+import rain.function.dataNode.ObjectNode
 import javax.sql.DataSource
 
 interface SupportPool {

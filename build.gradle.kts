@@ -6,7 +6,13 @@ plugins {
 group = "com.IceCreamQAQ.SmartAccess"
 version = "0.1.0"
 
-allprojects {
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven("https://maven.icecreamqaq.com/repository/maven-public/")
+}
+
+subprojects {
     apply {
         plugin("java")
     }
@@ -19,6 +25,6 @@ allprojects {
 
     dependencies {
         implementation(kotlin("stdlib"))
-        implementation("com.IceCreamQAQ:Yu-Core:0.5.0")
+        implementation("com.IceCreamQAQ.Rain:application:1.0.0-DEV1")
     }
 }

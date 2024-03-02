@@ -5,11 +5,11 @@ import com.IceCreamQAQ.SmartAccess.DBService
 import com.IceCreamQAQ.SmartAccess.access.Access
 import com.IceCreamQAQ.SmartAccess.access.AccessMetadataProvider
 import com.IceCreamQAQ.SmartAccess.jdbc.pool.JDBCPool
-import com.IceCreamQAQ.Yu.annotation.Config
-import com.IceCreamQAQ.Yu.hasAnnotation
-import com.IceCreamQAQ.Yu.util.dataNode.ObjectNode
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import rain.di.Config
+import rain.function.dataNode.ObjectNode
+import rain.function.hasAnnotation
 import javax.inject.Named
 import javax.sql.DataSource
 

@@ -1,6 +1,7 @@
 package com.IceCreamQAQ.SmartAccess.db
 
-import com.IceCreamQAQ.Yu.util.dataNode.ObjectNode
+import rain.function.dataNode.ObjectNode
+
 
 object DataSourceUtil{
     fun dbMap(db: ObjectNode, properties: Array<String>): ObjectNode {

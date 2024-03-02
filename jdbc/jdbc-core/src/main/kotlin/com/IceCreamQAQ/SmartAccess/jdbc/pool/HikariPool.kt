@@ -1,8 +1,8 @@
 package com.IceCreamQAQ.SmartAccess.jdbc.pool
 
-import com.IceCreamQAQ.Yu.util.dataNode.ObjectNode
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import rain.function.dataNode.ObjectNode
 
 object HikariPool:SupportPool {
 

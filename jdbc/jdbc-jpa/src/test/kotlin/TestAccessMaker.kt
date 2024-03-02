@@ -2,7 +2,7 @@ import com.IceCreamQAQ.SmartAccess.item.Page
 import com.IceCreamQAQ.SmartAccess.jpa.access.JpaAccess
 import com.IceCreamQAQ.SmartAccess.jpa.access.JpaAccessBase
 import com.IceCreamQAQ.SmartAccess.jpa.access.JpaAccessMaker
-import com.IceCreamQAQ.Yu.loader.AppClassloader
+import rain.classloader.AppClassloader
 import java.io.File
 
 
@@ -17,14 +17,14 @@ interface TestAccess : JpaAccess<String, String> {
 fun main() {
     val classloader = AppClassloader(TestAccess::class.java.classLoader)
 
-    val clazz = classloader.define(
-        "TestAccessImpl",
-        JpaAccessMaker(
-            JpaAccessBase::class.java,
-            TestAccess::class.java,
-            String::class.java,
-            String::class.java
-        ).also { File("TestAccessImpl.class").writeBytes(it) }
-    )
-    println(clazz)
+//    val clazz = classloader.define(
+//        "TestAccessImpl",
+//        JpaAccessMaker(
+//            JpaAccessBase::class.java,
+//            TestAccess::class.java,
+//            String::class.java,
+//            String::class.java
+//        ).also { File("TestAccessImpl.class").writeBytes(it) }
+//    )
+//    println(clazz)
 }

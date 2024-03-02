@@ -1,6 +1,6 @@
 package com.IceCreamQAQ.SmartAccess.reflect
 
-import com.IceCreamQAQ.Yu.toUpperCaseFirstOne
+import rain.function.toUpperCaseFirstOne
 
 interface FieldReader<E, F> {
     operator fun invoke(entity: E): F?

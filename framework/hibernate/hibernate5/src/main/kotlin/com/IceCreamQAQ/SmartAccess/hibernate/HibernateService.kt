@@ -2,9 +2,9 @@ package com.IceCreamQAQ.SmartAccess.hibernate
 
 import com.IceCreamQAQ.SmartAccess.jpa.JPAService
 import com.IceCreamQAQ.SmartAccess.jpa.spi.PersistenceUnitInfoImpl
-import com.IceCreamQAQ.Yu.loader.AppClassloader
 import org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl
 import org.hibernate.jpa.boot.internal.PersistenceUnitInfoDescriptor
+import rain.classloader.AppClassloader
 import javax.inject.Named
 
 @Named("hibernate5")

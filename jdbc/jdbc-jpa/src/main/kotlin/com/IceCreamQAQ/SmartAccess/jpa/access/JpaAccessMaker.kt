@@ -12,14 +12,12 @@ import com.IceCreamQAQ.SmartAccess.access.query.AbstractQuery
 import com.IceCreamQAQ.SmartAccess.item.Page
 import com.IceCreamQAQ.SmartAccess.jdbc.annotation.Execute
 import com.IceCreamQAQ.SmartAccess.jdbc.annotation.Select
-import com.IceCreamQAQ.Yu.allMethod
-import com.IceCreamQAQ.Yu.annotation
-import com.IceCreamQAQ.Yu.util.*
 import jakarta.persistence.Query
 import jakarta.persistence.TypedQuery
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
+import rain.function.*
 import java.lang.reflect.Method
 
 object JpaAccessMaker : ServiceAccessMaker {
