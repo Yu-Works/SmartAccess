@@ -48,10 +48,6 @@ class SmartAccess(
 
         defaultService = dbServiceMap["default"]
         this.dbServiceMap = dbServiceMap
-
-        dbServiceMap.forEach { (name, service) ->
-            service.startDatabase(name, dbModuleMap[name] ?: ArrayList())
-        }
     }
 
     override fun register(clazz: Class<*>) {
@@ -68,7 +64,11 @@ class SmartAccess(
         }
     }
 
-    override fun start() {}
+    override fun start() {
+        dbServiceMap.forEach { (name, service) ->
+            service.startDatabase(name, dbModuleMap[name] ?: ArrayList())
+        }
+    }
 
     override fun stop() {
         dbServiceMap.forEach { (_, service) ->
