@@ -17,17 +17,32 @@ import java.sql.Connection
 open class JpaAccessBase<T, PK : Serializable>(
     var context: JpaContext,
     var pageable: JDBCPageAble?,
-    var modelType: Class<T>,
-    var primaryKeyType: Class<PK>
+    @JvmField
+    val _modelType: Class<T>,
+    @JvmField
+    val _primaryKeyType: Class<PK>
 ) : JpaAccess<T, PK> {
 
-    val database = modelType.annotation<Database>()?.value ?: "default"
-    val primaryKeyName = modelType.allField.first { it.hasAnnotation<Id>() }.name
+    @JvmField
+    val _modelName = _modelType.simpleName
 
-    val modelName = modelType.simpleName
-    val selectQueryString = "from $modelName"
-    val countQueryString = "select count($primaryKeyName) from $modelName"
-    val deleteQueryString = "delete form $modelName where $primaryKeyName = ?0"
+    override val modelType: Class<T>
+        get() = _modelType
+
+    override val primaryKeyType: Class<PK>
+        get() = _primaryKeyType
+
+    override val modelName
+        get() = _modelName
+
+    val database = _modelType.annotation<Database>()?.value ?: "default"
+    val primaryKeyName = _modelType.allField.first { it.hasAnnotation<Id>() }.name
+
+
+
+    val selectQueryString = "from $_modelName"
+    val countQueryString = "select count($primaryKeyName) from $_modelName"
+    val deleteQueryString = "delete form $_modelName where $primaryKeyName = ?0"
 
     override fun getConnection(): Connection = getEntityManager().unwrap(Connection::class.java)
     override fun getEntityManager(): EntityManager = context.getEntityManager(database)

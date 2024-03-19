@@ -11,8 +11,8 @@ import java.sql.Connection
 abstract class JDBCAccessBase<T, PK : Serializable>(
     private val context: JdbcContext,
     private val pageable: JDBCPageAble,
-    private val modelType: Class<T>,
-    private val primaryKeyType: Class<PK>
+    override val modelType: Class<T>,
+    override val primaryKeyType: Class<PK>
 ) : JDBCAccess<T, PK> {
 
     val table = modelType.declaredFields.firstNotNullOfOrNull { it.annotation<Table>() }?.name

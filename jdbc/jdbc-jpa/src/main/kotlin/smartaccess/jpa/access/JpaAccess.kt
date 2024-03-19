@@ -12,6 +12,8 @@ import java.sql.Connection
 @ProvideAccessTemple
 interface JpaAccess<T, PK : Serializable> : Access<T, PK> {
 
+    val modelName: String
+
     fun getConnection(): Connection
     fun getEntityManager(): EntityManager
 
