@@ -19,6 +19,10 @@ subprojects {
         plugin("maven-publish")
     }
 
+    java {
+        withSourcesJar()
+    }
+
     repositories {
         mavenLocal()
         mavenCentral()
