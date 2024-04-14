@@ -1,5 +1,6 @@
 package smartaccess.access.interpreter
 
+import rain.function.toLowerCaseFirstOne
 import smartaccess.access.query.AbstractQuery
 import smartaccess.access.query.OrderByItem
 import smartaccess.access.query.WhereItem
@@ -74,7 +75,7 @@ object MethodInterpreter {
 
             fun endItem(infix: String? = null) {
                 if (nameBuilder.isEmpty()) return
-                wheres.add(WhereItem(nameBuilder.toString(), expression.first, expression.second, infix))
+                wheres.add(WhereItem(nameBuilder.toString().toLowerCaseFirstOne(), expression.first, expression.second, infix))
                 expression = "=" to true
                 nameBuilder.clear()
             }
