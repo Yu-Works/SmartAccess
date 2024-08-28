@@ -1,10 +1,10 @@
 plugins {
     java
-    kotlin("jvm") version "1.9.10"
+    kotlin("jvm") version "2.0.10"
 }
 
 group = "com.IceCreamQAQ.SmartAccess"
-version = "0.1.0-DEV1"
+version = "1.0.0-DEV1"
 
 repositories {
     mavenLocal()
@@ -17,10 +17,17 @@ subprojects {
         plugin("java")
         plugin("java-library")
         plugin("maven-publish")
+        plugin("org.jetbrains.kotlin.jvm")
     }
 
     java {
         withSourcesJar()
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlin {
+        jvmToolchain(8)
     }
 
     repositories {
@@ -74,8 +81,8 @@ subprojects {
 
 
                     credentials {
-                        username = ""
-                        password = ""
+                        System.getenv("MAVEN_USER")?.let { username = it }
+                        System.getenv("MAVEN_TOKEN")?.let { password = it }
                     }
                 }
             }
