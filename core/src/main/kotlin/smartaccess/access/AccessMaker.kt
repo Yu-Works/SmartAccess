@@ -9,6 +9,7 @@ import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
 import rain.function.*
 import rain.function.type.RelType
+import java.lang.reflect.Method
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.javaConstructor
 
@@ -63,53 +64,54 @@ object AccessMaker {
             cw.visitMethod(ACC_PUBLIC, "<init>", constructorDescriptor, null, null)
                 .makeConstructor(implAccess, access, moduleType, primaryKeyType, constructorDescriptor)
 
+            val defaultMethods = defaultImpl?.allMethod
+                ?.mapNotNull { defaultMethod ->
+                    runCatching {
+                        access.getMethod(
+                            defaultMethod.name,
+                            *defaultMethod.parameterTypes.toMutableList().apply { removeAt(0) }.toTypedArray()
+                        )
+                    }.getOrNull()?.also { method ->
+                        fun makeMethod(): MethodVisitor {
+                            return cw.visitMethod(ACC_PUBLIC, method.name, Type.getMethodDescriptor(method), null, null)
+                        }
+
+                        var i = 1
+                        fun getIndex(desc: String): Int {
+                            val c = i
+                            i += getTypedWidth(desc)
+                            return c
+                        }
+                        makeMethod().apply {
+                            visitCode()
+                            visitVarInsn(ALOAD, 0)
+                            method.parameterTypes.forEach {
+                                it.descriptor.let { desc ->
+                                    visitVarInsn(getLoad(desc), getIndex(desc))
+                                }
+                            }
+                            visitMethodInsn(
+                                INVOKESTATIC,
+                                defaultImpl.internalName,
+                                defaultMethod.name,
+                                Type.getMethodDescriptor(defaultMethod),
+                                false
+                            )
+                            if (method.returnType != Void.TYPE) visitInsn(getReturn(method.returnType.descriptor))
+                            else visitInsn(RETURN)
+                            visitMaxs(method.parameterTypes.size + 1, method.parameterTypes.size + 1)
+                            visitEnd()
+                        }
+                    }
+                } ?: emptyList()
 
             access.allMethod.asSequence()
                 .filter { !it.isDefault }
                 .filter { it.name !in serviceAccessMaker.baseMethods }
+                .filter { it !in defaultMethods }
                 .forEach { method ->
                     fun makeMethod(): MethodVisitor {
                         return cw.visitMethod(ACC_PUBLIC, method.name, Type.getMethodDescriptor(method), null, null)
-                    }
-
-                    defaultImpl?.let {
-
-                        runCatching {
-                            it.getMethod(
-                                method.name,
-                                *arrayListOf(access).apply { addAll(method.parameterTypes) }.toTypedArray()
-                            )
-                        }.getOrNull()?.let { defaultMethod ->
-
-                            var i = 1
-                            fun getIndex(desc:String):Int{
-                                val c = i
-                                i += getTypedWidth(desc)
-                                return c
-                            }
-                            makeMethod().apply {
-                                visitCode()
-                                visitVarInsn(ALOAD, 0)
-                                method.parameterTypes.forEach{
-                                    it.descriptor.let { desc->
-                                        visitVarInsn(getLoad(desc), getIndex(desc))
-                                    }
-                                }
-                                visitMethodInsn(
-                                    INVOKESTATIC,
-                                    defaultImpl.internalName,
-                                    defaultMethod.name,
-                                    Type.getMethodDescriptor(defaultMethod),
-                                    false
-                                )
-                                if (method.returnType != Void.TYPE) visitInsn(getReturn(method.returnType.descriptor))
-                                else visitInsn(RETURN)
-                                visitMaxs(method.parameterTypes.size + 1, method.parameterTypes.size + 1)
-                                visitEnd()
-                            }
-
-                            return@forEach
-                        }
                     }
 
                     val returnRelType = RelType.create(method.genericReturnType)
@@ -160,5 +162,22 @@ object AccessMaker {
         cw.visitEnd()
         return cw.toByteArray()
     }
+
+    fun findAllMethod(clazz: Class<*>, methods: MutableList<Method> = ArrayList()): List<Method> {
+        clazz.declaredMethods.forEach {
+            if (!methods.any { m -> it.name == m.name && it.parameterTypes.contentEquals(m.parameterTypes) })
+                methods.add(it)
+        }
+        clazz.interfaces.forEach { findAllMethod(it, methods) }
+        clazz.superclass?.let { findAllMethod(it, methods) }
+        return methods
+    }
+
+    fun getTypedWidth(type: String): Int =
+        when (type[0]) {
+            'B', 'S', 'I', 'Z', 'F', 'C' -> 1
+            'J', 'D' -> 2
+            else -> 1
+        }
 
 }
