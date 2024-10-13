@@ -9,6 +9,7 @@ import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
 import rain.function.*
 import rain.function.type.RelType
+import smartaccess.item.PageResult
 import java.lang.reflect.Method
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.javaConstructor
@@ -21,10 +22,15 @@ object AccessMaker {
     val pageOwner = Page::class.java.internalName
     val pageDescriptor = Page::class.java.descriptor
 
+    val pageResultOwner = PageResult::class.java.internalName
+    val pageResultDescriptor = PageResult::class.java.descriptor
+
     val stringDescriptor = String::class.java.descriptor
     val classDescriptor = Class::class.java.descriptor
-    val objectDescriptor = Any::class.java.descriptor
     val listDescriptor = List::class.java.descriptor
+
+    val objectOwner = Any::class.java.internalName
+    val objectDescriptor = Any::class.java.descriptor
 
     operator fun invoke(
         implAccess: Class<*>,
@@ -119,6 +125,8 @@ object AccessMaker {
                     val isList = List::class.java.isAssignableFrom(returnRelType.realClass)
                     if (isList && returnRelType.realClass != List::class.java) error("方法 ${method.fullName} 只能接受 List 类型！不能接受 List 其子类型！")
                     if (isList && returnRelType.generics == null) error("方法 ${method.fullName} 返回值为 List 时必须指定泛型类型！")
+                    val isPage = PageResult::class.java.isAssignableFrom(returnRelType.realClass)
+                    if (isPage && returnRelType.generics == null) error("方法 ${method.fullName} 返回值为 PageResult 时必须指定泛型类型！")
 
                     val realType = if (isList) returnRelType.generics!![0].realClass else returnRelType.realClass
                     val isModel = realType == moduleType
@@ -134,6 +142,7 @@ object AccessMaker {
                             primaryKeyType,
                             it,
                             isList,
+                            isPage,
                             isModel,
                             realType
                         )
@@ -149,6 +158,7 @@ object AccessMaker {
                                         primaryKeyType,
                                         it,
                                         isList,
+                                        isPage,
                                         isModel,
                                         realType
                                     ) else makeExecute(method, implAccess, access, moduleType, primaryKeyType, it)

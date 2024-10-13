@@ -1,5 +1,6 @@
 package smartaccess.jpa.access
 
+import jakarta.persistence.LockModeType
 import smartaccess.ServiceAccessMaker
 import smartaccess.access.AccessMaker.classDescriptor
 import smartaccess.access.AccessMaker.descriptor
@@ -18,6 +19,10 @@ import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
 import rain.function.*
+import smartaccess.access.AccessMaker.objectOwner
+import smartaccess.access.AccessMaker.pageDescriptor
+import smartaccess.access.AccessMaker.pageResultDescriptor
+import smartaccess.jpa.annotation.Lock
 import java.lang.reflect.Method
 
 object JpaAccessMaker : ServiceAccessMaker {
@@ -64,10 +69,25 @@ object JpaAccessMaker : ServiceAccessMaker {
         primaryKeyType: Class<*>,
         query: String,
         isList: Boolean,
+        isPage: Boolean,
         isModel: Boolean,
         realType: Class<*>
     ) {
-        val queryIndex = method.parameterCount + 1
+        val params = run {
+            var num = 1
+            method.parameters.map {
+                val size = when (it.type) {
+                    Long::class.javaPrimitiveType, Double::class.javaPrimitiveType -> 2
+                    else -> 1
+                }
+                MethodPara(size, num, it.type.descriptor).also { num += size }
+            }
+        }
+        val methodStack = (params.lastOrNull()?.let { it.stackNum + it.stackSize } ?: 0)
+        val hasWidth = params.any { it.stackSize == 2 }
+
+
+        val queryIndex = methodStack
         val returnTypeDescription = method.returnType.descriptor
 
 //        if (!isModel) error("暂不支持非 Model 的返回值类型。")
@@ -81,78 +101,113 @@ object JpaAccessMaker : ServiceAccessMaker {
 
         visitVarInsn(ALOAD, 0)
         visitLdcInsn(query)
-        if (isModel) {
-            visitLdcInsn(Type.getType(moduleType))
+        if (isPage) {
+            visitVarInsn(ALOAD, method.parameterCount)
+
+            visitIntInsn(paramCount)
+            visitTypeInsn(ANEWARRAY, objectOwner)
+
+            repeat(paramCount) { i ->
+                val it = params[i]
+
+                visitInsn(DUP)
+                visitIntInsn(i)
+                it.type.let { type ->
+                    visitVarInsn(getLoad(type), it.stackNum)
+                    // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
+                    if (type.length == 1)
+                        getTyped(type).let { typed ->
+                            visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
+                        }
+                }
+                visitInsn(AASTORE)
+            }
             visitMethodInsn(
                 INVOKEVIRTUAL,
                 implAccess.internalName,
-                "typedQuery",
-                "($stringDescriptor$classDescriptor)$queryFunDescriptor",
+                "page",
+                "($stringDescriptor$pageDescriptor[$objectDescriptor)$pageResultDescriptor",
                 false
             )
-        } else visitMethodInsn(
-            INVOKEVIRTUAL,
-            implAccess.internalName,
-            "jpaQuery",
-            "($stringDescriptor)$queryFunDescriptor",
-            false
-        )
-        visitVarInsn(ASTORE, queryIndex)
+            visitInsn(ARETURN)
+            var maxStack = 7
+            if (hasWidth) maxStack += 1
+            visitMaxs(maxStack, queryIndex + 1)
+        } else {
+            if (isModel) {
+                visitLdcInsn(Type.getType(moduleType))
+                visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    implAccess.internalName,
+                    "typedQuery",
+                    "($stringDescriptor$classDescriptor)$queryFunDescriptor",
+                    false
+                )
+            } else visitMethodInsn(
+                INVOKEVIRTUAL,
+                implAccess.internalName,
+                "jpaQuery",
+                "($stringDescriptor)$queryFunDescriptor",
+                false
+            )
+            visitVarInsn(ASTORE, queryIndex)
 
-        for (i in 0..<paramCount) {
-            visitVarInsn(ALOAD, queryIndex)
-            visitIntInsn(i)
-            Type.getDescriptor(method.parameters[i].type).let { type ->
-                visitVarInsn(getLoad(type), i + 1)
-                // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
-                if (type.length == 1)
-                    getTyped(type).let { typed ->
-                        visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
-                    }
+            for (i in 0..<paramCount) {
+                val it = params[i]
+                visitVarInsn(ALOAD, queryIndex)
+                visitIntInsn(i)
+                it.type.let { type ->
+                    visitVarInsn(getLoad(type), it.stackNum)
+                    // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
+                    if (type.length == 1)
+                        getTyped(type).let { typed ->
+                            visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
+                        }
 
+                }
+                visitMethodInsn(
+                    INVOKEINTERFACE,
+                    queryFunOwner,
+                    "setParameter",
+                    "(ILjava/lang/Object;)$queryFunDescriptor",
+                    true
+                )
             }
-            visitMethodInsn(
-                INVOKEINTERFACE,
-                queryFunOwner,
-                "setParameter",
-                "(ILjava/lang/Object;)$queryFunDescriptor",
-                true
-            )
+
+            if (havePage) {
+                val pageIndex = queryIndex - 1
+                visitVarInsn(ALOAD, queryIndex)
+                visitVarInsn(ALOAD, pageIndex)
+                visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getStart", "()I", false)
+                visitMethodInsn(
+                    INVOKEINTERFACE,
+                    queryFunOwner,
+                    "setFirstResult",
+                    "(I)$queryFunDescriptor",
+                    true
+                )
+                visitVarInsn(ALOAD, queryIndex)
+                visitVarInsn(ALOAD, pageIndex)
+                visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getNum", "()I", false)
+                visitMethodInsn(
+                    INVOKEINTERFACE,
+                    queryFunOwner,
+                    "setMaxResults",
+                    "(I)$queryFunDescriptor",
+                    true
+                )
+            }
+
+            visitVarInsn(ALOAD, queryIndex)
+            if (isList)
+                visitMethodInsn(INVOKEINTERFACE, queryOwner, "getResultList", "()$listDescriptor", true)
+            else
+                visitMethodInsn(INVOKEINTERFACE, queryOwner, "getSingleResult", "()$objectDescriptor", true)
+            makeCast(this, returnTypeDescription)
+            visitInsn(getReturn(returnTypeDescription))
+            visitMaxs(6, queryIndex + 2)
         }
 
-        if (havePage) {
-            val pageIndex = queryIndex - 1
-            visitVarInsn(ALOAD, queryIndex)
-            visitVarInsn(ALOAD, pageIndex)
-            visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getStart", "()I", false)
-            visitMethodInsn(
-                INVOKEINTERFACE,
-                queryFunOwner,
-                "setFirstResult",
-                "(I)$queryFunDescriptor",
-                true
-            )
-            visitVarInsn(ALOAD, queryIndex)
-            visitVarInsn(ALOAD, pageIndex)
-            visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getNum", "()I", false)
-            visitMethodInsn(
-                INVOKEINTERFACE,
-                queryFunOwner,
-                "setMaxResults",
-                "(I)$queryFunDescriptor",
-                true
-            )
-        }
-
-        visitVarInsn(ALOAD, queryIndex)
-        if (isList)
-            visitMethodInsn(INVOKEINTERFACE, queryOwner, "getResultList", "()$listDescriptor", true)
-        else
-            visitMethodInsn(INVOKEINTERFACE, queryOwner, "getSingleResult", "()$objectDescriptor", true)
-        makeCast(this, returnTypeDescription)
-        visitInsn(getReturn(returnTypeDescription))
-
-        visitMaxs(queryIndex + 1, 5)
         visitEnd()
     }
 

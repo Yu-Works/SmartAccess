@@ -17,19 +17,20 @@ interface ServiceAccessMaker {
     )
 
     fun MethodVisitor.makeSelect(
-        method:Method,
+        method: Method,
         implAccess: Class<*>,
         access: Class<*>,
         moduleType: Class<*>,
         primaryKeyType: Class<*>,
         query: String,
         isList: Boolean,
+        isPage: Boolean,
         isModel: Boolean,
         realType: Class<*>
     )
 
     fun MethodVisitor.makeExecute(
-        method:Method,
+        method: Method,
         implAccess: Class<*>,
         access: Class<*>,
         moduleType: Class<*>,
