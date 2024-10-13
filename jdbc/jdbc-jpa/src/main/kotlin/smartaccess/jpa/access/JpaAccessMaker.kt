@@ -36,6 +36,9 @@ object JpaAccessMaker : ServiceAccessMaker {
     private val typedQueryOwner = TypedQuery::class.java.internalName
     private val typedQueryDescriptor = TypedQuery::class.java.descriptor
 
+    private val lockModeOwner = LockModeType::class.java.internalName
+    private val lockModeDescriptor = LockModeType::class.java.descriptor
+
     override fun MethodVisitor.makeConstructor(
         implAccess: Class<*>,
         access: Class<*>,
@@ -86,6 +89,7 @@ object JpaAccessMaker : ServiceAccessMaker {
         val methodStack = (params.lastOrNull()?.let { it.stackNum + it.stackSize } ?: 0)
         val hasWidth = params.any { it.stackSize == 2 }
 
+        val lock = method.getAnnotation(Lock::class.java)?.value?.name
 
         val queryIndex = methodStack
         val returnTypeDescription = method.returnType.descriptor
@@ -102,6 +106,7 @@ object JpaAccessMaker : ServiceAccessMaker {
         visitVarInsn(ALOAD, 0)
         visitLdcInsn(query)
         if (isPage) {
+            if (lock != null) visitFieldInsn(GETSTATIC, lockModeOwner, lock, lockModeDescriptor)
             visitVarInsn(ALOAD, method.parameterCount)
 
             visitIntInsn(paramCount)
@@ -126,12 +131,14 @@ object JpaAccessMaker : ServiceAccessMaker {
                 INVOKEVIRTUAL,
                 implAccess.internalName,
                 "page",
-                "($stringDescriptor$pageDescriptor[$objectDescriptor)$pageResultDescriptor",
+                if (lock != null) "($stringDescriptor$lockModeDescriptor$pageDescriptor[$objectDescriptor)$pageResultDescriptor"
+                else "($stringDescriptor$pageDescriptor[$objectDescriptor)$pageResultDescriptor",
                 false
             )
             visitInsn(ARETURN)
             var maxStack = 7
             if (hasWidth) maxStack += 1
+            if (lock != null) maxStack += 1
             visitMaxs(maxStack, queryIndex + 1)
         } else {
             if (isModel) {
@@ -196,6 +203,12 @@ object JpaAccessMaker : ServiceAccessMaker {
                     "(I)$queryFunDescriptor",
                     true
                 )
+            }
+
+            lock?.let {
+                visitVarInsn(ALOAD, queryIndex)
+                visitFieldInsn(GETSTATIC, lockModeOwner, lock, lockModeDescriptor)
+                visitMethodInsn(INVOKEINTERFACE, queryFunOwner, "setLockMode", "($lockModeDescriptor)$queryFunDescriptor", true)
             }
 
             visitVarInsn(ALOAD, queryIndex)
