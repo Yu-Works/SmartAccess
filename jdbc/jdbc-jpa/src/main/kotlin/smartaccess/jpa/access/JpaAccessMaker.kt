@@ -211,11 +211,21 @@ object JpaAccessMaker : ServiceAccessMaker {
                 visitMethodInsn(INVOKEINTERFACE, queryFunOwner, "setLockMode", "($lockModeDescriptor)$queryFunDescriptor", true)
             }
 
-            visitVarInsn(ALOAD, queryIndex)
-            if (isList)
-                visitMethodInsn(INVOKEINTERFACE, queryOwner, "getResultList", "()$listDescriptor", true)
-            else
-                visitMethodInsn(INVOKEINTERFACE, queryOwner, "getSingleResult", "()$objectDescriptor", true)
+            if (isList){
+                visitVarInsn(ALOAD, queryIndex)
+                visitMethodInsn(INVOKEINTERFACE, queryFunOwner, "getResultList", "()$listDescriptor", true)
+            } else {
+                visitVarInsn(ALOAD, 0)
+                visitVarInsn(ALOAD, queryIndex)
+                visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    implAccess.internalName,
+                    "singleOrNull",
+                    "($typedQueryDescriptor)$objectDescriptor",
+                    false
+                )
+            }
+
             makeCast(this, returnTypeDescription)
             visitInsn(getReturn(returnTypeDescription))
             visitMaxs(6, queryIndex + 2)

@@ -71,17 +71,24 @@ abstract class JpaAccessBase<T, PK : Serializable>(
         return getEntityManager().createQuery(_searchRewriter(qlString), type)
     }
 
+    fun <E> singleOrNull(query: TypedQuery<E>): E? =
+        try {
+            query.singleResult
+        } catch (e: NoResultException) {
+            null
+        }
+
     override fun single(queryString: String, vararg params: Any?): T? {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
-        return typedQuery.singleResult
+        return singleOrNull(typedQuery)
     }
 
     override fun single(queryString: String, lock: LockModeType, vararg params: Any?): T? {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
         typedQuery.lockMode = lock
-        return typedQuery.singleResult
+        return singleOrNull(typedQuery)
     }
 
     override fun count(queryString: String, vararg params: Any?): Long {
