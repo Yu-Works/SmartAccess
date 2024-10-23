@@ -128,14 +128,14 @@ abstract class JpaAccessBase<T, PK : Serializable>(
     }
 
     override fun page(queryString: String, page: Page, vararg params: Any?): PageResult<T> =
-        PageResult(count(query2countQuery(queryString), params), list(queryString, page, params))
+        PageResult(count(query2countQuery(queryString), *params), list(queryString, page, *params))
 
     override fun page(queryString: String, lock: LockModeType, page: Page, vararg params: Any?): PageResult<T> =
-        PageResult(count(query2countQuery(queryString), params), list(queryString, lock, page, params))
+        PageResult(count(query2countQuery(queryString), *params), list(queryString, lock, page, *params))
 
     open fun query2countQuery(queryString: String): String {
         val index = queryString.indexOf("from")
-        return countQueryString + queryString.substring(index)
+        return "select count(id) " + queryString.substring(index)
     }
 
     override fun execute(queryString: String, vararg para: Any): Int {
