@@ -208,10 +208,16 @@ object JpaAccessMaker : ServiceAccessMaker {
             lock?.let {
                 visitVarInsn(ALOAD, queryIndex)
                 visitFieldInsn(GETSTATIC, lockModeOwner, lock, lockModeDescriptor)
-                visitMethodInsn(INVOKEINTERFACE, queryFunOwner, "setLockMode", "($lockModeDescriptor)$queryFunDescriptor", true)
+                visitMethodInsn(
+                    INVOKEINTERFACE,
+                    queryFunOwner,
+                    "setLockMode",
+                    "($lockModeDescriptor)$queryFunDescriptor",
+                    true
+                )
             }
 
-            if (isList){
+            if (isList) {
                 visitVarInsn(ALOAD, queryIndex)
                 visitMethodInsn(INVOKEINTERFACE, queryFunOwner, "getResultList", "()$listDescriptor", true)
             } else {
@@ -228,7 +234,7 @@ object JpaAccessMaker : ServiceAccessMaker {
 
             makeCast(this, returnTypeDescription)
             visitInsn(getReturn(returnTypeDescription))
-            visitMaxs(6, queryIndex + 2)
+            visitMaxs(if (hasWidth) 7 else 6, queryIndex + 2)
         }
 
         visitEnd()
