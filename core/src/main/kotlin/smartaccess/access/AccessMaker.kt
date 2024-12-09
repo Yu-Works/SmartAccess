@@ -9,8 +9,13 @@ import org.objectweb.asm.Opcodes.*
 import org.objectweb.asm.Type
 import rain.function.*
 import rain.function.type.RelType
+import smartaccess.access.AccessMaker.descriptor
+import smartaccess.access.AccessMaker.internalName
 import smartaccess.item.PageResult
 import java.lang.reflect.Method
+import java.lang.reflect.ParameterizedType
+import java.lang.reflect.WildcardType
+import kotlin.coroutines.Continuation
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.javaConstructor
 
@@ -32,13 +37,23 @@ object AccessMaker {
     val objectOwner = Any::class.java.internalName
     val objectDescriptor = Any::class.java.descriptor
 
+    val continuationOwner = Continuation::class.java.internalName
+    val continuationDescriptor = Continuation::class.java.descriptor
+
+    class AccessEntry(
+        val access: ByteArray,
+        val accessNeedClasses: Array<ByteArray>,
+    )
+
     operator fun invoke(
         implAccess: Class<*>,
         access: Class<*>,
         moduleType: Class<*>,
         primaryKeyType: Class<*>,
         serviceAccessMaker: ServiceAccessMaker
-    ): ByteArray {
+    ): Pair<ByteArray, Array<Pair<String,ByteArray>>> {
+        val needClasses = ArrayList<Pair<String,ByteArray>>()
+
         val accessOwner = access.internalName
         val accessDescriptor = access.descriptor
         val implOwner = implAccess.internalName
@@ -116,11 +131,21 @@ object AccessMaker {
                 .filter { it.name !in serviceAccessMaker.baseMethods }
                 .filter { it !in defaultMethods }
                 .forEach { method ->
-                    fun makeMethod(): MethodVisitor {
-                        return cw.visitMethod(ACC_PUBLIC, method.name, Type.getMethodDescriptor(method), null, null)
+                    var suspendContextClass: String? = null
+                    if (method.parameterCount > 0 && Continuation::class.java.isAssignableFrom(method.parameterTypes.last())) {
+                        suspendContextClass = "${accessOwner}\$Impl\$${method.name}\$${needClasses.size}"
+                        needClasses.add("${access.name}\$Impl\$${method.name}\$${needClasses.size}" to createSuspendMethodContextClass(access, method, needClasses.size))
                     }
+                    fun makeMethod(): MethodVisitor =
+                        cw.visitMethod(ACC_PUBLIC, method.name, Type.getMethodDescriptor(method), null, null)
 
-                    val returnRelType = RelType.create(method.genericReturnType)
+
+                    val returnRelType = RelType.create(suspendContextClass?.let {
+                        method.genericParameterTypes.last()
+                            .let { it as ParameterizedType }
+                            .let { it.actualTypeArguments[0] as WildcardType}
+                            .let { it.lowerBounds[0] }
+                    } ?: method.genericReturnType)
                     if (returnRelType.realClass.isArray) error("方法 ${method.fullName} 返回值不能为数组！请使用 List 接受返回值！")
                     val isList = List::class.java.isAssignableFrom(returnRelType.realClass)
                     if (isList && returnRelType.realClass != List::class.java) error("方法 ${method.fullName} 只能接受 List 类型！不能接受 List 其子类型！")
@@ -132,7 +157,15 @@ object AccessMaker {
                     val isModel = realType == moduleType
 
                     method.haveExecute()?.let {
-                        makeMethod().makeExecute(method, implAccess, access, moduleType, primaryKeyType, it)
+                        makeMethod().makeExecute(
+                            method,
+                            implAccess,
+                            access,
+                            moduleType,
+                            primaryKeyType,
+                            it,
+                            suspendContextClass
+                        )
                     } ?: method.haveSelect()?.let {
                         makeMethod().makeSelect(
                             method,
@@ -144,7 +177,8 @@ object AccessMaker {
                             isList,
                             isPage,
                             isModel,
-                            realType
+                            realType,
+                            suspendContextClass
                         )
                     } ?: run {
                         MethodInterpreter(method.name).let { absQuery ->
@@ -160,14 +194,104 @@ object AccessMaker {
                                         isList,
                                         isPage,
                                         isModel,
-                                        realType
-                                    ) else makeExecute(method, implAccess, access, moduleType, primaryKeyType, it)
+                                        realType,
+                                        suspendContextClass
+                                    ) else makeExecute(
+                                        method,
+                                        implAccess,
+                                        access,
+                                        moduleType,
+                                        primaryKeyType,
+                                        it,
+                                        suspendContextClass
+                                    )
                                 }
                             }
                         }
                     }
                 }
         }
+
+        cw.visitEnd()
+        return cw.toByteArray() to needClasses.toTypedArray()
+    }
+
+    fun createSuspendMethodContextClass(instanceType: Class<*>, suspendMethod: Method, id: Int): ByteArray {
+        val instanceOwner = instanceType.internalName
+        val instanceDescriptor = instanceType.descriptor
+
+        val paramNum = suspendMethod.parameterCount - 1
+        val continuationImplOwner = "kotlin/coroutines/jvm/internal/ContinuationImpl"
+
+        val thisOwner = "${instanceOwner}\$Impl\$${suspendMethod.name}\$$id"
+        val thisDescriptor = "L$thisOwner;"
+        val cw = ClassWriter(0)
+        cw.visit(
+            V1_8,
+            ACC_PUBLIC,
+            "${instanceOwner}\$Impl\$${suspendMethod.name}\$$id",
+            null,
+            continuationImplOwner,
+            null
+        )
+
+        cw.visitField(ACC_PUBLIC, "instance", instanceType.descriptor, null, null).visitEnd()
+        cw.visitField(ACC_PUBLIC, "label", "I", null, null).visitEnd()
+        cw.visitField(ACC_PUBLIC, "result", objectDescriptor, null, null).visitEnd()
+
+        suspendMethod.parameterTypes.forEachIndexed { index, type ->
+            if (index >= paramNum) return@forEachIndexed
+            cw.visitField(ACC_PUBLIC, "param$index", type.descriptor, null, null).visitEnd()
+        }
+
+        cw.visitMethod(ACC_PUBLIC, "<init>", "($instanceDescriptor$continuationDescriptor)V", null, null)
+            .apply {
+                visitVarInsn(ALOAD, 0)
+                visitVarInsn(ALOAD, 1)
+                visitFieldInsn(PUTFIELD, thisOwner, "instance", instanceDescriptor)
+                visitVarInsn(ALOAD, 0)
+                visitVarInsn(ALOAD, 2)
+                visitMethodInsn(
+                    INVOKESPECIAL,
+                    continuationImplOwner,
+                    "<init>",
+                    "(Lkotlin/coroutines/Continuation;)V",
+                    false
+                )
+                visitInsn(RETURN)
+                visitMaxs(3, 3)
+                visitEnd()
+            }
+
+        cw.visitMethod(ACC_PUBLIC, "invokeSuspend", "(Ljava/lang/Object;)Ljava/lang/Object;", null, null)
+            .apply {
+                visitVarInsn(ALOAD, 0)
+                visitVarInsn(ALOAD, 1)
+                visitFieldInsn(PUTFIELD, thisOwner, "result", objectDescriptor)
+                visitVarInsn(ALOAD, 0)
+                visitInsn(DUP)
+                visitFieldInsn(GETFIELD, thisOwner, "label", "I")
+                visitLdcInsn(Int.MIN_VALUE)
+                visitInsn(IOR)
+                visitFieldInsn(PUTFIELD, thisOwner, "label", "I")
+                visitVarInsn(ALOAD, 0)
+                visitFieldInsn(GETFIELD, thisOwner, "instance", instanceDescriptor)
+                repeat(paramNum) {
+                    visitInsn(ACONST_NULL)
+                }
+                visitVarInsn(ALOAD, 0)
+                visitTypeInsn(CHECKCAST, continuationOwner)
+                visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    instanceOwner,
+                    suspendMethod.name,
+                    Type.getMethodDescriptor(suspendMethod),
+                    false
+                )
+                visitInsn(ARETURN)
+                visitMaxs(3 + paramNum, 2)
+                visitEnd()
+            }
 
         cw.visitEnd()
         return cw.toByteArray()

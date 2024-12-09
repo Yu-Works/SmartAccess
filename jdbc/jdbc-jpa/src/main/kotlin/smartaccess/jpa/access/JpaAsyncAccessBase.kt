@@ -1,25 +1,26 @@
 package smartaccess.jpa.access
 
 import jakarta.persistence.*
-import rain.function.*
 import smartaccess.annotation.Database
 import smartaccess.item.Page
 import smartaccess.jdbc.access.JDBCPageAble
 import smartaccess.jpa.db.JpaContext
+import rain.function.allField
+import rain.function.annotation
+import rain.function.hasAnnotation
 import smartaccess.item.PageResult
-import smartaccess.jpa.annotation.ExecuteRewriter
-import smartaccess.jpa.annotation.SearchRewriter
 import java.io.Serializable
 import java.sql.Connection
+import kotlin.jvm.internal.Intrinsics
 
-abstract class JpaAccessBase<T, PK : Serializable>(
+abstract class JpaAsyncAccessBase<T, PK : Serializable>(
     var context: JpaContext,
     var pageable: JDBCPageAble?,
     @JvmField
     val _modelType: Class<T>,
     @JvmField
     val _primaryKeyType: Class<PK>
-) : JpaAccess<T, PK> {
+) : JpaAsyncAccess<T, PK> {
 
     @JvmField
     val _modelName = _modelType.simpleName
@@ -37,20 +38,6 @@ abstract class JpaAccessBase<T, PK : Serializable>(
     val _executeRewriter = executeRewriter ?: QueryRewriter { it }
 
     val database = _modelType.annotation<Database>()?.value ?: "default"
-    val primaryKeyReader = run {
-        val field = _modelType.allField.first { it.hasAnnotation<Id>() }
-        val name = field.name
-        val getter = kotlin.runCatching { _modelType.getDeclaredMethod("get${name.toUpperCaseFirstOne()}") }.getOrNull()
-
-        if (getter != null && getter.isPublic) {
-            { entity: T -> getter.invoke(entity) as PK? }
-        } else {
-            { entity: T ->
-                field.isAccessible = true
-                field.get(entity) as PK?
-            }
-        }
-    }
     val primaryKeyName = _modelType.allField.first { it.hasAnnotation<Id>() }.name
 
 
@@ -58,28 +45,28 @@ abstract class JpaAccessBase<T, PK : Serializable>(
     val countQueryString = "select count($primaryKeyName) from $_modelName"
     val deleteQueryString = "delete form $_modelName where $primaryKeyName = ?0"
 
-    override fun getConnection(): Connection = getEntityManager().unwrap(Connection::class.java)
-    override fun getEntityManager(): EntityManager = context.getEntityManager(database)
+    override suspend fun getConnection(): Connection = getEntityManager().unwrap(Connection::class.java)
+    override suspend fun getEntityManager(): EntityManager = context.getEntityManagerAsync(database)
 
-    override fun where(paras: Map<String, Any>) {
+    override suspend fun where(paras: Map<String, Any>) {
         TODO("Not yet implemented")
     }
 
-    override fun where(paras: Map<String, Any>, page: Page) {
+    override suspend fun where(paras: Map<String, Any>, page: Page) {
         TODO("Not yet implemented")
     }
 
-    override fun findAll(): List<T> = list(selectQueryString)
+    override suspend fun findAll(): List<T> = list(selectQueryString)
 
-    override fun findAll(page: Page): List<T> = list(selectQueryString, page)
+    override suspend fun findAll(page: Page): List<T> = list(selectQueryString, page)
 
-    override fun findPage(page: Page) = page(selectQueryString, page)
+    override suspend fun findPage(page: Page) = page(selectQueryString, page)
 
-    override fun jpaQuery(qlString: String): Query {
+    override suspend fun jpaQuery(qlString: String): Query {
         return getEntityManager().createQuery(_searchRewriter(qlString))
     }
 
-    override fun <E> typedQuery(qlString: String, type: Class<E>): TypedQuery<E> {
+    override suspend fun <E> typedQuery(qlString: String, type: Class<E>): TypedQuery<E> {
         return getEntityManager().createQuery(_searchRewriter(qlString), type)
     }
 
@@ -90,39 +77,39 @@ abstract class JpaAccessBase<T, PK : Serializable>(
             null
         }
 
-    override fun single(queryString: String, vararg params: Any?): T? {
+    override suspend fun single(queryString: String, vararg params: Any?): T? {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
         return singleOrNull(typedQuery)
     }
 
-    override fun single(queryString: String, lock: LockModeType, vararg params: Any?): T? {
+    override suspend fun single(queryString: String, lock: LockModeType, vararg params: Any?): T? {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
         typedQuery.lockMode = lock
         return singleOrNull(typedQuery)
     }
 
-    override fun count(queryString: String, vararg params: Any?): Long {
+    override suspend fun count(queryString: String, vararg params: Any?): Long {
         val query = jpaQuery(queryString)
         params.forEachIndexed { i, it -> query.setParameter(i, it) }
         return query.singleResult as Long
     }
 
-    override fun list(queryString: String, vararg params: Any?): List<T> {
+    override suspend fun list(queryString: String, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
         return typedQuery.resultList
     }
 
-    override fun list(queryString: String, lock: LockModeType, vararg params: Any?): List<T> {
+    override suspend fun list(queryString: String, lock: LockModeType, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
         typedQuery.lockMode = lock
         return typedQuery.resultList
     }
 
-    override fun list(queryString: String, page: Page, vararg params: Any?): List<T> {
+    override suspend fun list(queryString: String, page: Page, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
         typedQuery.setFirstResult(page.start)
@@ -130,7 +117,7 @@ abstract class JpaAccessBase<T, PK : Serializable>(
         return typedQuery.resultList
     }
 
-    override fun list(queryString: String, lock: LockModeType, page: Page, vararg params: Any?): List<T> {
+    override suspend fun list(queryString: String, lock: LockModeType, page: Page, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
         params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
         typedQuery.lockMode = lock
@@ -139,10 +126,10 @@ abstract class JpaAccessBase<T, PK : Serializable>(
         return typedQuery.resultList
     }
 
-    override fun page(queryString: String, page: Page, vararg params: Any?): PageResult<T> =
+    override suspend fun page(queryString: String, page: Page, vararg params: Any?): PageResult<T> =
         PageResult(count(query2countQuery(queryString), *params), list(queryString, page, *params))
 
-    override fun page(queryString: String, lock: LockModeType, page: Page, vararg params: Any?): PageResult<T> =
+    override suspend fun page(queryString: String, lock: LockModeType, page: Page, vararg params: Any?): PageResult<T> =
         PageResult(count(query2countQuery(queryString), *params), list(queryString, lock, page, *params))
 
     open fun query2countQuery(queryString: String): String {
@@ -150,31 +137,37 @@ abstract class JpaAccessBase<T, PK : Serializable>(
         return "select count(id) " + queryString.substring(index)
     }
 
-    override fun execute(queryString: String, vararg para: Any): Int {
+    override suspend fun execute(queryString: String, vararg para: Any): Int {
         val query = getEntityManager().createQuery(_executeRewriter(queryString))
         para.forEachIndexed { i, it -> query.setParameter(i, it) }
         return query.executeUpdate()
     }
 
-    override fun saveOrUpdate(entity: T) {
+    override suspend fun saveOrUpdate(entity: T) {
         val em = getEntityManager()
-        if (primaryKeyReader(entity) == null) em.persist(entity)
+        if (!em.contains(entity)) em.persist(entity)
         else em.merge(entity)
     }
 
-    override fun update(entity: T) {
+    override suspend fun update(entity: T) {
         getEntityManager().merge(entity)
     }
 
-    override fun save(entity: T) {
+    override suspend fun save(entity: T) {
         getEntityManager().persist(entity)
     }
 
-    override fun delete(id: PK) {
+    override suspend fun delete(id: PK) {
         execute(deleteQueryString, id)
     }
 
-    override fun get(id: PK): T? {
+    override suspend fun get(id: PK): T? {
         return getEntityManager().find(modelType, id)
+    }
+
+    suspend fun findByField(field: String): Long {
+        val query = jpaQuery("select t from $_modelName t where t.$field = ?1")
+        query.setParameter(1, field)
+        return query.singleResult as Long
     }
 }

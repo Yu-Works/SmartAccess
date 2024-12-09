@@ -6,6 +6,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import smartaccess.jpa.access.JpaAsyncAccess
 
 @Entity
 data class Student(
@@ -16,13 +17,13 @@ data class Student(
     var age: Int = 0
 )
 
-interface StudentAccess : JpaAccess<Student, Int> {
-    fun findByName(name: String): Student?
-    fun findByAge(age: Int): List<Student>
-    fun findByAgeOrderByName(age: Int, page: Page): List<Student>
-    fun text() = "World"
-    fun print(text:String? = "world"){
-        println("Hello $text!")
-    }
-    fun countByAge(age: Int): Long
+interface StudentAccess : JpaAsyncAccess<Student, Int> {
+    suspend fun findByName(name: String): Student?
+//    fun findByAge(age: Int): List<Student>
+//    fun findByAgeOrderByName(age: Int, page: Page): List<Student>
+//    fun text() = "World"
+//    fun print(text:String? = "world"){
+//        println("Hello $text!")
+//    }
+//    fun countByAge(age: Int): Long
 }

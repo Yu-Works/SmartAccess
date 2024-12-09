@@ -26,7 +26,8 @@ interface ServiceAccessMaker {
         isList: Boolean,
         isPage: Boolean,
         isModel: Boolean,
-        realType: Class<*>
+        realType: Class<*>,
+        suspendContextClass: String?
     )
 
     fun MethodVisitor.makeExecute(
@@ -35,7 +36,8 @@ interface ServiceAccessMaker {
         access: Class<*>,
         moduleType: Class<*>,
         primaryKeyType: Class<*>,
-        query: String
+        query: String,
+        suspendContextClass: String?
     )
 
     fun AbstractQuery.serialize(moduleType: Class<*>): String

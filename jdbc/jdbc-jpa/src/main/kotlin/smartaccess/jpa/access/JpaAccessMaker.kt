@@ -74,7 +74,8 @@ object JpaAccessMaker : ServiceAccessMaker {
         isList: Boolean,
         isPage: Boolean,
         isModel: Boolean,
-        realType: Class<*>
+        realType: Class<*>,
+        suspendContextClass: String?
     ) {
         val params = run {
             var num = 1
@@ -232,6 +233,7 @@ object JpaAccessMaker : ServiceAccessMaker {
                 )
             }
 
+
             makeCast(this, returnTypeDescription)
             visitInsn(getReturn(returnTypeDescription))
             visitMaxs(if (hasWidth) 7 else 6, queryIndex + 2)
@@ -246,9 +248,20 @@ object JpaAccessMaker : ServiceAccessMaker {
         access: Class<*>,
         moduleType: Class<*>,
         primaryKeyType: Class<*>,
-        query: String
+        query: String,
+        suspendContextClass: String?
     ) {
         val queryIndex = method.parameterCount + 1
+        val params = run {
+            var num = 1
+            method.parameters.map {
+                val size = when (it.type) {
+                    Long::class.javaPrimitiveType, Double::class.javaPrimitiveType -> 2
+                    else -> 1
+                }
+                MethodPara(size, num, it.type.descriptor).also { num += size }
+            }
+        }
 
         visitVarInsn(ALOAD, 0)
         visitLdcInsn(query)
@@ -261,10 +274,10 @@ object JpaAccessMaker : ServiceAccessMaker {
         )
         visitVarInsn(ASTORE, queryIndex)
 
-        method.parameters.forEachIndexed { i, it ->
+        params.forEachIndexed { i, it ->
             visitVarInsn(ALOAD, queryIndex)
             visitIntInsn(i)
-            it.type.name.let { type ->
+            it.type.let { type ->
                 visitVarInsn(getLoad(type), i + 1)
                 // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
                 if (type.length == 1)
@@ -277,7 +290,7 @@ object JpaAccessMaker : ServiceAccessMaker {
                 INVOKEINTERFACE,
                 queryOwner,
                 "setParameter",
-                "(ILjava/lang/Object;)$queryOwner",
+                "(ILjava/lang/Object;)$queryDescriptor",
                 true
             )
         }
