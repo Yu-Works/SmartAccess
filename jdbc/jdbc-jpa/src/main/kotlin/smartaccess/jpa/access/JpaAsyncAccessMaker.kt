@@ -17,10 +17,13 @@ import smartaccess.access.AccessMaker.listDescriptor
 import smartaccess.access.AccessMaker.objectDescriptor
 import smartaccess.access.AccessMaker.objectOwner
 import smartaccess.access.AccessMaker.pageOwner
+import smartaccess.access.AccessMaker.pageResultDescriptor
 import smartaccess.access.AccessMaker.stringDescriptor
 import smartaccess.access.query.AbstractQuery
+import smartaccess.item.Page
 import smartaccess.jdbc.annotation.Execute
 import smartaccess.jdbc.annotation.Select
+import smartaccess.jpa.PagedQuery
 import smartaccess.jpa.annotation.Lock
 import java.lang.reflect.Method
 
@@ -34,6 +37,9 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
 
     private val typedQueryOwner = TypedQuery::class.java.internalName
     private val typedQueryDescriptor = TypedQuery::class.java.descriptor
+
+    private val pagedQueryOwner = PagedQuery::class.java.internalName
+    private val pagedQueryDescriptor = PagedQuery::class.java.descriptor
 
     private val lockModeOwner = LockModeType::class.java.internalName
     private val lockModeDescriptor = LockModeType::class.java.descriptor
@@ -76,6 +82,84 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
         realType: Class<*>,
         suspendContextClass: String?
     ) {
+        val typedFun = isModel || isList || isPage
+        val funName = when {
+            isPage -> "pagedQuery"
+            isList -> "typedQuery"
+            isModel -> "typedQuery"
+            else -> "jpaQuery"
+        }
+
+        val funDescriptor = when (funName) {
+            "pagedQuery" -> "($stringDescriptor$classDescriptor$continuationDescriptor)$objectDescriptor"
+            "typedQuery" -> "($stringDescriptor$classDescriptor$continuationDescriptor)$objectDescriptor"
+            else -> "($stringDescriptor$continuationDescriptor)$objectDescriptor"
+        }
+        val queryIsInterface = !isPage
+        val queryOwner = when (funName) {
+            "pagedQuery" -> pagedQueryOwner
+            "typedQuery" -> typedQueryOwner
+            else -> queryOwner
+        }
+        val queryDescriptor = when (funName) {
+            "pagedQuery" -> pagedQueryDescriptor
+            "typedQuery" -> typedQueryDescriptor
+            else -> queryDescriptor
+        }
+        val resultFunName =
+            if (isPage) "getPageResult"
+            else if (isList) "getResultList"
+            else "singleOrNull"
+        val resultFunTypeDescriptor = when (resultFunName) {
+            "getPageResult" -> pageResultDescriptor
+            "getResultList" -> listDescriptor
+            else -> "($queryDescriptor)$objectDescriptor"
+        }
+        val resultFunAtThis = resultFunName == "singleOrNull"
+
+        val queryAble = QueryAble(
+            typedFun,
+            funName,
+            funDescriptor,
+            queryIsInterface,
+            queryOwner,
+            queryDescriptor,
+            resultFunName,
+            resultFunTypeDescriptor,
+            resultFunAtThis
+        )
+        makeAsyncFunction(
+            method,
+            implAccess,
+            access,
+            moduleType,
+            query,
+            suspendContextClass,
+            queryAble
+        )
+    }
+
+    data class QueryAble(
+        val typedFun: Boolean,
+        val funName: String,
+        val funDescriptor: String,
+        val queryIsInterface: Boolean,
+        val queryOwner: String,
+        val queryDescriptor: String,
+        val resultFunName: String,
+        val resultFunTypeDescriptor: String,
+        val resultFunAtThis: Boolean
+    )
+
+    fun MethodVisitor.makeAsyncFunction(
+        method: Method,
+        implAccess: Class<*>,
+        access: Class<*>,
+        moduleType: Class<*>,
+        query: String,
+        suspendContextClass: String?,
+        queryFun: QueryAble
+    ) {
         val thisOwner = access.internalName + "\$Impl"
         val thisDescriptor = "L$thisOwner;"
 
@@ -89,6 +173,12 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
                 MethodPara(size, num, it.type.descriptor).also { num += size }
             }
         }
+        val paramNum = params.size
+        val noContextParamNum = paramNum - 1
+        var noPageParamNum = noContextParamNum
+        if (noPageParamNum > 1 && method.parameterTypes[noPageParamNum - 1] == Page::class.java)
+            noPageParamNum--
+
         var methodStack = (params.lastOrNull()?.let { it.stackNum + it.stackSize } ?: 0)
         val hasWidth = params.any { it.stackSize == 2 }
 
@@ -106,56 +196,52 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
         val bodyLabel = Label()
         val contextIndex = nextStack()
 
-        visitVarInsn(params.last())
-        visitTypeInsn(INSTANCEOF, suspendContextClass)
-        visitJumpInsn(IFEQ, newContextLabel)
-        visitVarInsn(params.last())
-        visitTypeInsn(CHECKCAST, suspendContextClass)
-        visitVarInsn(ASTORE, contextIndex)
-        visitVarInsn(ALOAD, contextIndex)
-        visitFieldInsn(GETFIELD, suspendContextClass, "label", "I")
-        visitLdcInsn(Int.MIN_VALUE)
-        visitInsn(IAND)
-        visitJumpInsn(IFEQ, newContextLabel)
-        visitVarInsn(ALOAD, contextIndex)
-        visitInsn(DUP)
-        visitFieldInsn(GETFIELD, suspendContextClass, "label", "I")
-        visitLdcInsn(Int.MIN_VALUE)
-        visitInsn(ISUB)
-        visitFieldInsn(PUTFIELD, suspendContextClass, "label", "I")
-        visitJumpInsn(GOTO, bodyLabel)
+        // check context
+        apply {
+            // 判断是否是第一次调用
+            apply {
+                visitVarInsn(params.last())
+                visitTypeInsn(INSTANCEOF, suspendContextClass)
+                visitJumpInsn(IFEQ, newContextLabel)
+                visitVarInsn(params.last())
+                visitTypeInsn(CHECKCAST, suspendContextClass)
+                visitVarInsn(ASTORE, contextIndex)
+                visitVarInsn(ALOAD, contextIndex)
+                visitFieldInsn(GETFIELD, suspendContextClass, "label", "I")
+                visitLdcInsn(Int.MIN_VALUE)
+                visitInsn(IAND)
+                visitJumpInsn(IFEQ, newContextLabel)
+                visitVarInsn(ALOAD, contextIndex)
+                visitInsn(DUP)
+                visitFieldInsn(GETFIELD, suspendContextClass, "label", "I")
+                visitLdcInsn(Int.MIN_VALUE)
+                visitInsn(ISUB)
+                visitFieldInsn(PUTFIELD, suspendContextClass, "label", "I")
+                visitJumpInsn(GOTO, bodyLabel)
+            }
 
+            // 创建新的上下文
+            apply {
+                visitLabel(newContextLabel)
+                visitFrame(F_SAME, 0, null, 0, null)
 
-        visitLabel(newContextLabel)
-        visitFrame(F_SAME, 0, null, 0, null)
-
-        visitTypeInsn(NEW, suspendContextClass)
-        visitInsn(DUP)
-        visitVarInsn(ALOAD, 0)
-        visitVarInsn(params.last())
-        visitMethodInsn(
-            INVOKESPECIAL,
-            suspendContextClass,
-            "<init>",
-            "(L${access.internalName};$continuationDescriptor)V",
-            false
-        )
-        visitVarInsn(ASTORE, contextIndex)
-
-        visitLabel(bodyLabel)
-        visitFrame(
-            F_APPEND,
-            2,
-            arrayOf<Any>(suspendContextClass!!, TOP),
-            0,
-            null
-        )
+                visitTypeInsn(NEW, suspendContextClass)
+                visitInsn(DUP)
+                visitVarInsn(ALOAD, 0)
+                visitVarInsn(params.last())
+                visitMethodInsn(
+                    INVOKESPECIAL,
+                    suspendContextClass,
+                    "<init>",
+                    "(L${access.internalName};$continuationDescriptor)V",
+                    false
+                )
+                visitVarInsn(ASTORE, contextIndex)
+            }
+        }
 
         val resultIndex = nextStack()
-        visitVarInsn(ALOAD, contextIndex)
-        visitFieldInsn(GETFIELD, suspendContextClass, "result", objectDescriptor)
-        visitVarInsn(ASTORE, resultIndex)
-
+        val queryIndex = nextStack()
 
         val switchDefaultLabel = Label()
         val switch0Label = Label()
@@ -163,198 +249,211 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
 
         val executeLabel = Label()
 
-        val (queryFunOwner, queryFunDescriptor) =
-            if (isModel) typedQueryOwner to typedQueryDescriptor
-            else queryOwner to queryDescriptor
-
-
-        visitVarInsn(ALOAD, contextIndex)
-        visitFieldInsn(GETFIELD, suspendContextClass, "label", "I")
-        visitTableSwitchInsn(0, 1, switchDefaultLabel, switch0Label, switch1Label)
-
-        // switch case 0:
+        // 开始准备 switch
         apply {
-            visitLabel(switch0Label)
-            val fullStack = ArrayList<Any>()
-            fullStack.add(thisOwner)
-            method.parameters.forEach { fullStack.add(it.type.internalName) }
-            fullStack.add(suspendContextClass)
-            fullStack.add(objectOwner)
-            visitFrame(F_FULL, params.size + 3, fullStack.toTypedArray(), 0, null)
-//            visitFrame(F_SAME, 0, null, 0, null)
-
-            visitVarInsn(ALOAD, 0)
-            visitLdcInsn(query)
-
-            if (isModel) {
-                visitLdcInsn(Type.getType(moduleType))
-                visitVarInsn(ALOAD, contextIndex)
-                visitMethodInsn(
-                    INVOKEVIRTUAL,
-                    implAccess.internalName,
-                    "typedQuery",
-                    "($stringDescriptor$classDescriptor$continuationDescriptor)$objectDescriptor",
-                    false
-                )
-            } else {
-                visitVarInsn(ALOAD, contextIndex)
-                visitMethodInsn(
-                    INVOKEVIRTUAL,
-                    implAccess.internalName,
-                    "jpaQuery",
-                    "($stringDescriptor$continuationDescriptor)$objectDescriptor",
-                    false
-                )
-            }
-            visitVarInsn(ASTORE, resultIndex)
-            visitVarInsn(ALOAD, resultIndex)
-            visitMethodInsn(
-                INVOKESTATIC,
-                "kotlin/coroutines/intrinsics/IntrinsicsKt",
-                "getCOROUTINE_SUSPENDED",
-                "()Ljava/lang/Object;",
-                false
+            visitLabel(bodyLabel)
+            visitFrame(
+                F_APPEND,
+                2,
+                arrayOf<Any>(suspendContextClass!!, TOP),
+                0,
+                null
             )
-            visitJumpInsn(IF_ACMPNE, executeLabel)
+
             visitVarInsn(ALOAD, contextIndex)
-            visitInsn(ICONST_1)
-            visitFieldInsn(PUTFIELD, suspendContextClass, "label", "I")
-            params.forEachIndexed { i, it ->
-                if (i >= (params.size - 1)) return@forEachIndexed
-                visitVarInsn(ALOAD, contextIndex)
-                visitVarInsn(ALOAD, it.stackNum)
-                visitFieldInsn(PUTFIELD, suspendContextClass, "param$i", it.type)
-            }
-            visitVarInsn(ALOAD, resultIndex)
-            visitInsn(ARETURN)
-        }
+            visitFieldInsn(GETFIELD, suspendContextClass, "result", objectDescriptor)
+            visitVarInsn(ASTORE, resultIndex)
 
-
-        // switch case 1:
-        apply {
-            visitLabel(switch1Label)
-            visitFrame(F_SAME, 0, null, 0, null)
             visitVarInsn(ALOAD, contextIndex)
-            visitMethodInsn(INVOKESTATIC, "kotlin/ResultKt", "throwOnFailure", "(Ljava/lang/Object;)V", false);
-            params.forEachIndexed { i, it ->
-                if (i >= (params.size - 1)) return@forEachIndexed
-                visitVarInsn(ALOAD, contextIndex)
-                visitFieldInsn(GETFIELD, suspendContextClass, "param$i", it.type)
-                visitVarInsn(ASTORE, it.stackNum)
-            }
-        }
+            visitFieldInsn(GETFIELD, suspendContextClass, "label", "I")
+            visitTableSwitchInsn(0, 1, switchDefaultLabel, switch0Label, switch1Label)
 
-        // execute
-        val queryIndex = nextStack()
-        apply {
-            visitLabel(executeLabel)
-            val fullStack = ArrayList<Any>()
-            fullStack.add(thisOwner)
-            method.parameters.forEach { fullStack.add(it.type.internalName) }
-            fullStack.add(suspendContextClass)
-            fullStack.add(objectOwner)
-            fullStack.add(TOP)
-            visitFrame(F_FULL, params.size + 4, fullStack.toTypedArray(), 0, null)
-//        visitFrame(F_APPEND, 1, arrayOf(queryFunOwner), 0, null)
-//        if (!isModel) error("暂不支持非 Model 的返回值类型。")
+            // switch case 0:
+            apply {
+                visitLabel(switch0Label)
+                val fullStack = ArrayList<Any>()
+                fullStack.add(thisOwner)
+                method.parameters.forEach { fullStack.add(it.type.internalName) }
+                fullStack.add(suspendContextClass)
+                fullStack.add(objectOwner)
+                visitFrame(F_FULL, params.size + 3, fullStack.toTypedArray(), 0, null)
 
-            visitVarInsn(ALOAD, resultIndex)
-            visitTypeInsn(CHECKCAST, queryFunOwner)
-            visitVarInsn(ASTORE, queryIndex)
-
-
-//        val havePage = method.parameters[params.size - 2].type == Page::class.java
-            val havePage = false
-            val paramCount = (if (havePage) method.parameterCount - 1 else method.parameterCount) - 1
-
-            for (i in 0..<paramCount) {
-                val it = params[i]
-                visitVarInsn(ALOAD, queryIndex)
-                visitIntInsn(i)
-                it.type.let { type ->
-                    visitVarInsn(getLoad(type), it.stackNum)
-                    // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
-                    if (type.length == 1)
-                        getTyped(type).let { typed ->
-                            visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
-                        }
-
-                }
-                visitMethodInsn(
-                    INVOKEINTERFACE,
-                    queryFunOwner,
-                    "setParameter",
-                    "(ILjava/lang/Object;)$queryFunDescriptor",
-                    true
-                )
-            }
-
-            if (havePage) {
-                val pageIndex = queryIndex - 1
-                visitVarInsn(ALOAD, queryIndex)
-                visitVarInsn(ALOAD, pageIndex)
-                visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getStart", "()I", false)
-                visitMethodInsn(
-                    INVOKEINTERFACE,
-                    queryFunOwner,
-                    "setFirstResult",
-                    "(I)$queryFunDescriptor",
-                    true
-                )
-                visitVarInsn(ALOAD, queryIndex)
-                visitVarInsn(ALOAD, pageIndex)
-                visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getNum", "()I", false)
-                visitMethodInsn(
-                    INVOKEINTERFACE,
-                    queryFunOwner,
-                    "setMaxResults",
-                    "(I)$queryFunDescriptor",
-                    true
-                )
-            }
-
-            lock?.let {
-                visitVarInsn(ALOAD, queryIndex)
-                visitFieldInsn(GETSTATIC, lockModeOwner, lock, lockModeDescriptor)
-                visitMethodInsn(
-                    INVOKEINTERFACE,
-                    queryFunOwner,
-                    "setLockMode",
-                    "($lockModeDescriptor)$queryFunDescriptor",
-                    true
-                )
-            }
-
-            if (isList) {
-                visitVarInsn(ALOAD, queryIndex)
-                visitMethodInsn(INVOKEINTERFACE, queryFunOwner, "getResultList", "()$listDescriptor", true)
-            } else {
                 visitVarInsn(ALOAD, 0)
-                visitVarInsn(ALOAD, queryIndex)
+                visitLdcInsn(query)
+                if (queryFun.typedFun) visitLdcInsn(Type.getType(moduleType))
+                visitVarInsn(ALOAD, contextIndex)
                 visitMethodInsn(
                     INVOKEVIRTUAL,
                     implAccess.internalName,
-                    "singleOrNull",
-                    "($typedQueryDescriptor)$objectDescriptor",
+                    queryFun.funName,
+                    queryFun.funDescriptor,
                     false
                 )
+                visitVarInsn(ASTORE, resultIndex)
+
+                visitVarInsn(ALOAD, resultIndex)
+                visitMethodInsn(
+                    INVOKESTATIC,
+                    "kotlin/coroutines/intrinsics/IntrinsicsKt",
+                    "getCOROUTINE_SUSPENDED",
+                    "()Ljava/lang/Object;",
+                    false
+                )
+                visitJumpInsn(IF_ACMPNE, executeLabel)
+                visitVarInsn(ALOAD, contextIndex)
+                visitInsn(ICONST_1)
+                visitFieldInsn(PUTFIELD, suspendContextClass, "label", "I")
+                params.forEachIndexed { i, it ->
+                    if (i >= noContextParamNum) return@forEachIndexed
+                    visitVarInsn(ALOAD, contextIndex)
+                    visitVarInsn(ALOAD, it.stackNum)
+                    visitFieldInsn(PUTFIELD, suspendContextClass, "param$i", it.type)
+                }
+                visitVarInsn(ALOAD, resultIndex)
+                visitInsn(ARETURN)
             }
-            val returnTypeDescription = method.returnType.descriptor
 
-            makeCast(this, returnTypeDescription)
-            visitInsn(getReturn(returnTypeDescription))
+            // switch case 1:
+            apply {
+                visitLabel(switch1Label)
+                visitFrame(F_SAME, 0, null, 0, null)
+                visitVarInsn(ALOAD, contextIndex)
+                visitMethodInsn(INVOKESTATIC, "kotlin/ResultKt", "throwOnFailure", "(Ljava/lang/Object;)V", false);
+                params.forEachIndexed { i, it ->
+                    if (i >= noContextParamNum) return@forEachIndexed
+                    visitVarInsn(ALOAD, contextIndex)
+                    visitFieldInsn(GETFIELD, suspendContextClass, "param$i", it.type)
+                    visitVarInsn(ASTORE, it.stackNum)
+                }
+            }
+
+            // execute
+            apply {
+                visitLabel(executeLabel)
+                val fullStack = ArrayList<Any>()
+                fullStack.add(thisOwner)
+                method.parameters.forEach { fullStack.add(it.type.internalName) }
+                fullStack.add(suspendContextClass)
+                fullStack.add(objectOwner)
+                fullStack.add(TOP)
+                visitFrame(F_FULL, params.size + 4, fullStack.toTypedArray(), 0, null)
+
+                visitVarInsn(ALOAD, resultIndex)
+                visitTypeInsn(CHECKCAST, queryFun.queryOwner)
+                visitVarInsn(ASTORE, queryIndex)
+
+
+                val havePage = noPageParamNum < noContextParamNum
+                val invokeQueryOpcode = if (queryFun.queryIsInterface) INVOKEINTERFACE else INVOKEVIRTUAL
+
+                visitVarInsn(ALOAD, queryIndex)
+
+                for (i in 0..< noPageParamNum) {
+                    val it = params[i]
+                    visitIntInsn(i)
+                    it.type.let { type ->
+                        visitVarInsn(getLoad(type), it.stackNum)
+                        // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
+                        if (type.length == 1)
+                            getTyped(type).let { typed ->
+                                visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
+                            }
+
+                    }
+                    visitMethodInsn(
+                        invokeQueryOpcode,
+                        queryFun.queryOwner,
+                        "setParameter",
+                        "(ILjava/lang/Object;)${queryFun.queryDescriptor}",
+                        queryFun.queryIsInterface
+                    )
+                }
+
+                if (havePage) {
+                    val pageIndex = params.get(noPageParamNum).stackNum
+                    visitVarInsn(ALOAD, pageIndex)
+                    visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getStart", "()I", false)
+                    visitMethodInsn(
+                        invokeQueryOpcode,
+                        queryFun.queryOwner,
+                        "setFirstResult",
+                        "(I)${queryFun.queryDescriptor}",
+                        queryFun.queryIsInterface
+                    )
+                    visitVarInsn(ALOAD, pageIndex)
+                    visitMethodInsn(INVOKEVIRTUAL, pageOwner, "getNum", "()I", false)
+                    visitMethodInsn(
+                        invokeQueryOpcode,
+                        queryFun.queryOwner,
+                        "setMaxResults",
+                        "(I)${queryFun.queryDescriptor}",
+                        queryFun.queryIsInterface
+                    )
+                }
+
+                lock?.let {
+                    visitFieldInsn(GETSTATIC, lockModeOwner, lock, lockModeDescriptor)
+                    visitMethodInsn(
+                        invokeQueryOpcode,
+                        queryFun.queryOwner,
+                        "setLockMode",
+                        "($lockModeDescriptor)${queryFun.queryDescriptor}",
+                        queryFun.queryIsInterface
+                    )
+                }
+
+                visitInsn(POP)
+
+                if (queryFun.resultFunAtThis) visitVarInsn(ALOAD, 0)
+                visitVarInsn(ALOAD, queryIndex)
+                if (queryFun.resultFunAtThis)
+                    visitMethodInsn(
+                        INVOKEVIRTUAL,
+                        implAccess.internalName,
+                        queryFun.resultFunName,
+                        "(${queryFun.queryDescriptor})${queryFun.resultFunTypeDescriptor}",
+                        false
+                    )
+                else
+                    visitMethodInsn(
+                        invokeQueryOpcode,
+                        queryFun.queryOwner,
+                        queryFun.resultFunName,
+                        "()${queryFun.resultFunTypeDescriptor}",
+                        queryFun.queryIsInterface
+                    )
+
+                val returnTypeDescription = method.returnType.descriptor
+
+                if (queryFun.resultFunTypeDescriptor.length == 1){
+                    val type = queryFun.resultFunTypeDescriptor
+                    getTyped(type).let { typed ->
+                        visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
+                    }
+                }
+
+                makeCast(this, returnTypeDescription)
+                visitInsn(getReturn(returnTypeDescription))
+            }
+
+            // switch default:
+            apply {
+                visitLabel(switchDefaultLabel)
+                visitFrame(F_SAME, 0, null, 0, null)
+                visitTypeInsn(NEW, "java/lang/IllegalStateException")
+                visitInsn(DUP)
+                visitLdcInsn("call to 'resume' before 'invoke' with coroutine")
+                visitMethodInsn(
+                    INVOKESPECIAL,
+                    "java/lang/IllegalStateException",
+                    "<init>",
+                    "(Ljava/lang/String;)V",
+                    false
+                )
+                visitInsn(ATHROW)
+            }
         }
 
-        // switch default:
-        apply {
-            visitLabel(switchDefaultLabel)
-            visitFrame(F_SAME, 0, null, 0, null)
-            visitTypeInsn(NEW, "java/lang/IllegalStateException")
-            visitInsn(DUP)
-            visitLdcInsn("call to 'resume' before 'invoke' with coroutine")
-            visitMethodInsn(INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;)V", false)
-            visitInsn(ATHROW)
-        }
         val endLabel = Label()
         visitLabel(endLabel)
         visitLocalVariable("this", thisDescriptor, null, startLabel, switchDefaultLabel, 0)
@@ -363,10 +462,9 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
         }
         visitLocalVariable("context", continuationDescriptor, null, startLabel, switchDefaultLabel, contextIndex)
         visitLocalVariable("result", objectDescriptor, null, bodyLabel, switchDefaultLabel, resultIndex)
-        visitLocalVariable("query", queryFunDescriptor, null, executeLabel, switchDefaultLabel, queryIndex)
+        visitLocalVariable("query", queryFun.queryDescriptor, null, executeLabel, switchDefaultLabel, queryIndex)
 
         visitMaxs(if (hasWidth) 7 else 6, queryIndex + 2)
-//        visitMaxs(0, 0)
         visitEnd()
     }
 
@@ -379,45 +477,65 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
         query: String,
         suspendContextClass: String?
     ) {
-        val queryIndex = method.parameterCount + 1
-
-        visitVarInsn(ALOAD, 0)
-        visitLdcInsn(query)
-        visitMethodInsn(
-            INVOKEVIRTUAL,
-            implAccess.internalName,
-            "jpaQuery",
-            "($stringDescriptor)$queryDescriptor",
-            false
-        )
-        visitVarInsn(ASTORE, queryIndex)
-
-        method.parameters.forEachIndexed { i, it ->
-            visitVarInsn(ALOAD, queryIndex)
-            visitIntInsn(i)
-            it.type.name.let { type ->
-                visitVarInsn(getLoad(type), i + 1)
-                // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
-                if (type.length == 1)
-                    getTyped(type).let { typed ->
-                        visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
-                    }
-
-            }
-            visitMethodInsn(
-                INVOKEINTERFACE,
+        makeAsyncFunction(
+            method,
+            implAccess,
+            access,
+            moduleType,
+            query,
+            suspendContextClass,
+            QueryAble(
+                false,
+                "jpaQuery",
+                "($stringDescriptor$continuationDescriptor)$objectDescriptor",
+                true,
                 queryOwner,
-                "setParameter",
-                "(ILjava/lang/Object;)$queryOwner",
-                true
+                queryDescriptor,
+                "executeUpdate",
+                "I",
+                false
             )
-        }
-        visitVarInsn(ALOAD, queryIndex)
-        visitMethodInsn(INVOKEINTERFACE, queryOwner, "executeUpdate", "()I", true)
-        visitInsn(IRETURN)
+        )
 
-        visitMaxs(queryIndex + 1, 4)
-        visitEnd()
+//        val queryIndex = method.parameterCount + 1
+//
+//        visitVarInsn(ALOAD, 0)
+//        visitLdcInsn(query)
+//        visitMethodInsn(
+//            INVOKEVIRTUAL,
+//            implAccess.internalName,
+//            "jpaQuery",
+//            "($stringDescriptor)$queryDescriptor",
+//            false
+//        )
+//        visitVarInsn(ASTORE, queryIndex)
+//
+//        method.parameters.forEachIndexed { i, it ->
+//            visitVarInsn(ALOAD, queryIndex)
+//            visitIntInsn(i)
+//            it.type.name.let { type ->
+//                visitVarInsn(getLoad(type), i + 1)
+//                // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
+//                if (type.length == 1)
+//                    getTyped(type).let { typed ->
+//                        visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
+//                    }
+//
+//            }
+//            visitMethodInsn(
+//                INVOKEINTERFACE,
+//                queryOwner,
+//                "setParameter",
+//                "(ILjava/lang/Object;)$queryOwner",
+//                true
+//            )
+//        }
+//        visitVarInsn(ALOAD, queryIndex)
+//        visitMethodInsn(INVOKEINTERFACE, queryOwner, "", "()I", true)
+//        visitInsn(IRETURN)
+//
+//        visitMaxs(queryIndex + 1, 4)
+//        visitEnd()
     }
 
     override fun AbstractQuery.serialize(moduleType: Class<*>): String =

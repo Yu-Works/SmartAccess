@@ -51,13 +51,25 @@ abstract class JPAService(
         metadataProvider: AccessMetadataProvider
     ): Access<*, *> {
         val primaryType = metadataProvider.getAccessPrimaryKeyType(accessClass)
-        val (classByte, needs) = AccessMaker(
-            JpaAsyncAccessBase::class.java,
-            accessClass,
-            modelClass,
-            primaryType,
-            JpaAsyncAccessMaker
-        )
+        val (classByte, needs) =
+            when {
+                JPAService::class.java.isAssignableFrom(accessClass) ->AccessMaker(
+                    JpaAsyncAccessBase::class.java,
+                    accessClass,
+                    modelClass,
+                    primaryType,
+                    JpaAsyncAccessMaker
+                )
+                JpaAsyncAccess::class.java.isAssignableFrom(accessClass) -> AccessMaker(
+                    JpaAsyncAccessBase::class.java,
+                    accessClass,
+                    modelClass,
+                    primaryType,
+                    JpaAsyncAccessMaker
+                )
+                else -> error("不可知的 Access 类型：${accessClass.name}")
+            }
+
         File("tmp/classOutput/" + accessClass.name + "\$Impl.class").writeBytes(classByte)
         val classAccess = appClassloader.define(accessClass.name + "\$Impl", classByte)
         needs.forEach { (name, bytes) ->

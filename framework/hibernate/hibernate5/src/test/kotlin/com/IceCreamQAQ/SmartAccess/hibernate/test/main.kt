@@ -1,5 +1,6 @@
 package com.IceCreamQAQ.SmartAccess.hibernate.test
 
+import com.IceCreamQAQ.SmartAccess.hibernate.test.model.Student
 import com.IceCreamQAQ.SmartAccess.hibernate.test.model.StudentAccess
 import kotlinx.coroutines.runBlocking
 import rain.application.FullStackApplicationLauncher
@@ -27,7 +28,16 @@ class TestListener(
 //        studentAccess.print()
         runBlocking {
             sa.defaultService?.cast<JPAService>()?.context?.transaction {
-                println(studentAccess.findByName("1"))
+//                studentAccess.save(Student(name = "1", age = 101))
+//                studentAccess.save(Student(name = "1", age = 102))
+//                studentAccess.save(Student(name = "1", age = 103))
+//                studentAccess.save(Student(name = "1", age = 104))
+//                studentAccess.save(Student(name = "1", age = 105))
+//                studentAccess.save(Student(name = "1", age = 106))
+//                studentAccess.save(Student(name = "1", age = 107))
+//                studentAccess.save(Student(name = "1", age = 108))
+                println(studentAccess.deleteByName("2"))
+//                println(studentAccess.findAll())
             }
         }
     }

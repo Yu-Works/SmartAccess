@@ -9,6 +9,7 @@ import rain.function.allField
 import rain.function.annotation
 import rain.function.hasAnnotation
 import smartaccess.item.PageResult
+import smartaccess.jpa.PagedQuery
 import java.io.Serializable
 import java.sql.Connection
 import kotlin.jvm.internal.Intrinsics
@@ -68,6 +69,14 @@ abstract class JpaAsyncAccessBase<T, PK : Serializable>(
 
     override suspend fun <E> typedQuery(qlString: String, type: Class<E>): TypedQuery<E> {
         return getEntityManager().createQuery(_searchRewriter(qlString), type)
+    }
+
+    suspend fun <E : Any> pagedQuery(qlString: String, type: Class<E>): PagedQuery<E> {
+        val em = getEntityManager()
+        return PagedQuery(
+            em.createQuery(_searchRewriter(qlString), type),
+            em.createQuery(query2countQuery(qlString))
+        )
     }
 
     fun <E> singleOrNull(query: TypedQuery<E>): E? =

@@ -55,8 +55,9 @@ class JpaContext(val emfMap: HashMap<String, EntityManagerFactory>) : DBContext 
     }
 
     suspend inline fun <R> transaction(vararg databases: String, crossinline block: suspend () -> R): R {
+        val dbs = databases.ifEmpty { arrayOf("default") }
         return runWithDatabaseContext {
-            val transaction = databases.map { beginTransactionAsync(it) }
+            val transaction = dbs.map { beginTransactionAsync(it) }
             try {
                 val result = block()
                 transaction.forEach { it.commitAsync() }
