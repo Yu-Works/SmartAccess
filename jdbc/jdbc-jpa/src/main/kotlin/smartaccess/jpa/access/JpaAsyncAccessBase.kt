@@ -63,6 +63,10 @@ abstract class JpaAsyncAccessBase<T, PK : Serializable>(
 
     override suspend fun findPage(page: Page) = page(selectQueryString, page)
 
+    suspend fun executeQuery(qlString: String): Query {
+        return getEntityManager().createQuery(_executeRewriter(qlString))
+    }
+
     override suspend fun jpaQuery(qlString: String): Query {
         return getEntityManager().createQuery(_searchRewriter(qlString))
     }
