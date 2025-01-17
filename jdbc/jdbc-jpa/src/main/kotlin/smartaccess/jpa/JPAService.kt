@@ -6,8 +6,6 @@ import smartaccess.access.AccessMaker
 import smartaccess.access.AccessMetadataProvider
 import smartaccess.jdbc.access.JDBCPageAble
 import smartaccess.jdbc.pool.JDBCPool
-import smartaccess.jpa.access.JpaAccessBase
-import smartaccess.jpa.access.JpaAccessMaker
 import smartaccess.jpa.db.JpaContext
 import jakarta.persistence.Entity
 import jakarta.persistence.EntityManagerFactory
@@ -15,6 +13,7 @@ import jakarta.persistence.Table
 import rain.classloader.AppClassloader
 import rain.function.dataNode.ObjectNode
 import rain.function.hasAnnotation
+import smartaccess.jpa.access.*
 import java.io.File
 import javax.inject.Named
 import javax.sql.DataSource
@@ -52,15 +51,31 @@ abstract class JPAService(
         metadataProvider: AccessMetadataProvider
     ): Access<*, *> {
         val primaryType = metadataProvider.getAccessPrimaryKeyType(accessClass)
-        val classByte = AccessMaker(
-            JpaAccessBase::class.java,
-            accessClass,
-            modelClass,
-            primaryType,
-            JpaAccessMaker
-        )
-        val classAccess = appClassloader.define(accessClass.name + "\$Impl", classByte)
+        val (classByte, needs) =
+            when {
+                JpaAccess::class.java.isAssignableFrom(accessClass) ->AccessMaker(
+                    JpaAccessBase::class.java,
+                    accessClass,
+                    modelClass,
+                    primaryType,
+                    JpaAccessMaker
+                )
+                JpaAsyncAccess::class.java.isAssignableFrom(accessClass) -> AccessMaker(
+                    JpaAsyncAccessBase::class.java,
+                    accessClass,
+                    modelClass,
+                    primaryType,
+                    JpaAsyncAccessMaker
+                )
+                else -> error("不可知的 Access 类型：${accessClass.name}")
+            }
+
         File("tmp/classOutput/" + accessClass.name + "\$Impl.class").writeBytes(classByte)
+        val classAccess = appClassloader.define(accessClass.name + "\$Impl", classByte)
+        needs.forEach { (name, bytes) ->
+            File("tmp/classOutput/$name.class").writeBytes(bytes)
+            appClassloader.define(name, bytes)
+        }
         return classAccess.getConstructor(
             JpaContext::class.java,
             JDBCPageAble::class.java,

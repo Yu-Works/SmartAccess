@@ -23,13 +23,13 @@ class AccessLoader(
             if (accessClass.hasAnnotation<ProvideAccessTemple>()) return@forEach
 
             val metadataProvider =
-                findMetadataProvider(accessClass, ArrayList()).let { providers ->
+                findMetadataProvider(accessClass, HashSet()).let { providers ->
                     when {
                         providers.isEmpty() -> AccessMetadataProvider.Default
-                        providers.size == 1 -> context.getBean(providers[0])
-                            ?: error("Access ${accessClass.name} 提供了 MetadataProvider 声明 ${providers[0].name}，但是没有找到或是无法创建该类的实例。")
+                        providers.size == 1 -> context.getBean(providers.first())
+                            ?: error("Access ${accessClass.name} 提供了 MetadataProvider 声明 ${providers.first().name}，但是没有找到或是无法创建该类的实例。")
 
-                        else -> throw RuntimeException("Access $accessClass 拥有 MetadataProvider 提供者声明，请检查 Access 继承传递链。")
+                        else -> throw RuntimeException("Access $accessClass 拥有多个 MetadataProvider 提供者声明，请检查 Access 继承传递链。")
                     }
                 }
 
@@ -46,8 +46,8 @@ class AccessLoader(
 
     private fun findMetadataProvider(
         clazz: Class<*>,
-        providers: MutableList<Class<out AccessMetadataProvider>>
-    ): List<Class<out AccessMetadataProvider>> {
+        providers: MutableSet<Class<out AccessMetadataProvider>>
+    ): Set<Class<out AccessMetadataProvider>> {
         clazz.annotation<MetadataProvider> { providers.add(value.java) }
         clazz.interfaces.forEach { findMetadataProvider(it, providers) }
         return providers
