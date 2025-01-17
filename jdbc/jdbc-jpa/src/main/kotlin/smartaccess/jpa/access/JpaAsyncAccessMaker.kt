@@ -113,7 +113,7 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
         val resultFunTypeDescriptor = when (resultFunName) {
             "getPageResult" -> pageResultDescriptor
             "getResultList" -> listDescriptor
-            else -> "($queryDescriptor)$objectDescriptor"
+            else -> objectDescriptor
         }
         val resultFunAtThis = resultFunName == "singleOrNull"
 
@@ -271,6 +271,7 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
             // switch case 0:
             apply {
                 visitLabel(switch0Label)
+                // 声明完整帧栈
                 val fullStack = ArrayList<Any>()
                 fullStack.add(thisOwner)
                 method.parameters.forEach { fullStack.add(it.type.internalName) }
@@ -306,7 +307,7 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
                 params.forEachIndexed { i, it ->
                     if (i >= noContextParamNum) return@forEachIndexed
                     visitVarInsn(ALOAD, contextIndex)
-                    visitVarInsn(ALOAD, it.stackNum)
+                    visitVarInsn(getLoad(it.type), it.stackNum)
                     visitFieldInsn(PUTFIELD, suspendContextClass, "param$i", it.type)
                 }
                 visitVarInsn(ALOAD, resultIndex)
@@ -323,7 +324,7 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
                     if (i >= noContextParamNum) return@forEachIndexed
                     visitVarInsn(ALOAD, contextIndex)
                     visitFieldInsn(GETFIELD, suspendContextClass, "param$i", it.type)
-                    visitVarInsn(ASTORE, it.stackNum)
+                    visitVarInsn(getStore(it.type), it.stackNum)
                 }
             }
 
@@ -439,7 +440,11 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
             // switch default:
             apply {
                 visitLabel(switchDefaultLabel)
-                visitFrame(F_SAME, 0, null, 0, null)
+                val fullStack = ArrayList<Any>()
+                fullStack.add(thisOwner)
+                method.parameters.forEach { fullStack.add(it.type.internalName) }
+                visitFrame(F_FULL, params.size + 1, fullStack.toTypedArray(), 0, null)
+//                visitFrame(F_SAME, 0, null, 0, null)
                 visitTypeInsn(NEW, "java/lang/IllegalStateException")
                 visitInsn(DUP)
                 visitLdcInsn("call to 'resume' before 'invoke' with coroutine")
@@ -486,7 +491,7 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
             suspendContextClass,
             QueryAble(
                 false,
-                "jpaQuery",
+                "executeQuery",
                 "($stringDescriptor$continuationDescriptor)$objectDescriptor",
                 true,
                 queryOwner,
@@ -496,46 +501,6 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
                 false
             )
         )
-
-//        val queryIndex = method.parameterCount + 1
-//
-//        visitVarInsn(ALOAD, 0)
-//        visitLdcInsn(query)
-//        visitMethodInsn(
-//            INVOKEVIRTUAL,
-//            implAccess.internalName,
-//            "jpaQuery",
-//            "($stringDescriptor)$queryDescriptor",
-//            false
-//        )
-//        visitVarInsn(ASTORE, queryIndex)
-//
-//        method.parameters.forEachIndexed { i, it ->
-//            visitVarInsn(ALOAD, queryIndex)
-//            visitIntInsn(i)
-//            it.type.name.let { type ->
-//                visitVarInsn(getLoad(type), i + 1)
-//                // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
-//                if (type.length == 1)
-//                    getTyped(type).let { typed ->
-//                        visitMethodInsn(INVOKESTATIC, typed, "valueOf", "($type)L$typed;", false)
-//                    }
-//
-//            }
-//            visitMethodInsn(
-//                INVOKEINTERFACE,
-//                queryOwner,
-//                "setParameter",
-//                "(ILjava/lang/Object;)$queryOwner",
-//                true
-//            )
-//        }
-//        visitVarInsn(ALOAD, queryIndex)
-//        visitMethodInsn(INVOKEINTERFACE, queryOwner, "", "()I", true)
-//        visitInsn(IRETURN)
-//
-//        visitMaxs(queryIndex + 1, 4)
-//        visitEnd()
     }
 
     override fun AbstractQuery.serialize(moduleType: Class<*>): String =
