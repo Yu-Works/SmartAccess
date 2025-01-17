@@ -38,7 +38,7 @@ subprojects {
 
     dependencies {
         implementation(kotlin("stdlib"))
-        implementation("com.IceCreamQAQ.Rain:application:1.0.0-DEV1")
+        implementation("com.IceCreamQAQ.Rain:application:1.0.0-DEV2")
     }
 
     configure<PublishingExtension> {
