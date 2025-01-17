@@ -53,12 +53,12 @@ abstract class JPAService(
         val primaryType = metadataProvider.getAccessPrimaryKeyType(accessClass)
         val (classByte, needs) =
             when {
-                JPAService::class.java.isAssignableFrom(accessClass) ->AccessMaker(
-                    JpaAsyncAccessBase::class.java,
+                JpaAccess::class.java.isAssignableFrom(accessClass) ->AccessMaker(
+                    JpaAccessBase::class.java,
                     accessClass,
                     modelClass,
                     primaryType,
-                    JpaAsyncAccessMaker
+                    JpaAccessMaker
                 )
                 JpaAsyncAccess::class.java.isAssignableFrom(accessClass) -> AccessMaker(
                     JpaAsyncAccessBase::class.java,
