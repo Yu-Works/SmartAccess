@@ -23,7 +23,8 @@ class HibernateService(
         config.properties["hibernate.hbm2ddl.auto"] = "update"
         entityManagerFactoryMap[name] = EntityManagerFactoryBuilderImpl(
             PersistenceUnitInfoDescriptor(config),
-            HashMap<String,Any>()
+            HashMap<String,Any>(),
+            appClassloader
         ).build()
     }
 }
