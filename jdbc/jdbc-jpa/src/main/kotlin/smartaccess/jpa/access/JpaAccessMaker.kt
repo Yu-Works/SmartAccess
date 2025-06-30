@@ -101,7 +101,7 @@ object JpaAccessMaker : ServiceAccessMaker {
             if (isModel) typedQueryOwner to typedQueryDescriptor
             else queryOwner to queryDescriptor
 
-        val havePage = method.parameters.last().type == Page::class.java
+        val havePage = method.parameters.isNotEmpty() && method.parameters.last().type == Page::class.java
         val paramCount = if (havePage) method.parameterCount - 1 else method.parameterCount
 
         visitVarInsn(ALOAD, 0)
