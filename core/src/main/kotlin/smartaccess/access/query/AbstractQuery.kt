@@ -30,7 +30,7 @@ class AbstractQuery(
             wheres.forEach {
                 query.append(" ${it.key} ${it.operator}")
                 if (it.needValue)
-                    if (needName) query.append(" :{${it.key}}")
+                    if (needName) query.append(" :${it.key}")
                     else {
                         query.append(" ?")
                         if (needIndex) query.append(paramIndex++)
