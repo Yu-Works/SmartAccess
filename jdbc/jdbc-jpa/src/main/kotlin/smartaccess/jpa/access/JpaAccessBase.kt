@@ -56,7 +56,7 @@ abstract class JpaAccessBase<T, PK : Serializable>(
 
     val selectQueryString = "from $_modelName"
     val countQueryString = "select count($primaryKeyName) from $_modelName"
-    val deleteQueryString = "delete form $_modelName where $primaryKeyName = ?0"
+    val deleteQueryString = "delete form $_modelName where $primaryKeyName = ?1"
 
     override fun getConnection(): Connection = getEntityManager().unwrap(Connection::class.java)
     override fun getEntityManager(): EntityManager = context.getEntityManager(database)
