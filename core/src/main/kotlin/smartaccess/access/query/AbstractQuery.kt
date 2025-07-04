@@ -1,5 +1,7 @@
 package smartaccess.access.query
 
+import rain.function.toLowerCaseFirstOne
+
 class AbstractQuery(
     val queryType: Int,
     val optParams: List<String>,
@@ -33,14 +35,14 @@ class AbstractQuery(
                     if (needName) query.append(" :${it.key}")
                     else {
                         query.append(" ?")
-                        if (needIndex) query.append(paramIndex++)
+                        if (needIndex) query.append(++paramIndex)
                     }
                 it.infix?.let { infix -> query.append(" ").append(infix) }
             }
         }
         if (orderBys.isNotEmpty()) {
             query.append(" order by ")
-            query.append(orderBys.joinToString(", ") { "${it.key} ${it.sort}" })
+            query.append(orderBys.joinToString(", ") { "${it.key.toLowerCaseFirstOne()} ${it.sort}" })
         }
         return query.toString()
     }

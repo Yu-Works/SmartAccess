@@ -92,39 +92,39 @@ abstract class JpaAccessBase<T, PK : Serializable>(
 
     override fun single(queryString: String, vararg params: Any?): T? {
         val typedQuery = typedQuery(queryString, modelType)
-        params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
+        params.forEachIndexed { i, it -> typedQuery.setParameter(i + 1, it) }
         return singleOrNull(typedQuery)
     }
 
     override fun single(queryString: String, lock: LockModeType, vararg params: Any?): T? {
         val typedQuery = typedQuery(queryString, modelType)
-        params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
+        params.forEachIndexed { i, it -> typedQuery.setParameter(i + 1, it) }
         typedQuery.lockMode = lock
         return singleOrNull(typedQuery)
     }
 
     override fun count(queryString: String, vararg params: Any?): Long {
         val query = jpaQuery(queryString)
-        params.forEachIndexed { i, it -> query.setParameter(i, it) }
+        params.forEachIndexed { i, it -> query.setParameter(i + 1, it) }
         return query.singleResult as Long
     }
 
     override fun list(queryString: String, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
-        params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
+        params.forEachIndexed { i, it -> typedQuery.setParameter(i + 1, it) }
         return typedQuery.resultList
     }
 
     override fun list(queryString: String, lock: LockModeType, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
-        params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
+        params.forEachIndexed { i, it -> typedQuery.setParameter(i + 1, it) }
         typedQuery.lockMode = lock
         return typedQuery.resultList
     }
 
     override fun list(queryString: String, page: Page, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
-        params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
+        params.forEachIndexed { i, it -> typedQuery.setParameter(i + 1, it) }
         typedQuery.setFirstResult(page.start)
         typedQuery.setMaxResults(page.num)
         return typedQuery.resultList
@@ -132,7 +132,7 @@ abstract class JpaAccessBase<T, PK : Serializable>(
 
     override fun list(queryString: String, lock: LockModeType, page: Page, vararg params: Any?): List<T> {
         val typedQuery = typedQuery(queryString, modelType)
-        params.forEachIndexed { i, it -> typedQuery.setParameter(i, it) }
+        params.forEachIndexed { i, it -> typedQuery.setParameter(i + 1, it) }
         typedQuery.lockMode = lock
         typedQuery.setFirstResult(page.start)
         typedQuery.setMaxResults(page.num)
@@ -152,7 +152,7 @@ abstract class JpaAccessBase<T, PK : Serializable>(
 
     override fun execute(queryString: String, vararg para: Any): Int {
         val query = getEntityManager().createQuery(_executeRewriter(queryString))
-        para.forEachIndexed { i, it -> query.setParameter(i, it) }
+        para.forEachIndexed { i, it -> query.setParameter(i + 1, it) }
         return query.executeUpdate()
     }
 

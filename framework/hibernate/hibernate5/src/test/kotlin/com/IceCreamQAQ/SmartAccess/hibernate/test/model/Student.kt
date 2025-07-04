@@ -18,9 +18,9 @@ data class Student(
     var age: Int = 0
 )
 
-interface StudentAccess : JpaAsyncAccess<Student, Int> {
-    suspend fun findByName(name: String, page: Page = Page(1,2)): PageResult<Student>
-    suspend fun deleteByName(name: String): Int
+interface StudentAccess : JpaAccess<Student, Int> {
+    fun findByName(name: String): List<Student>
+    fun deleteByName(name: String): Int
 //    fun findByAge(age: Int): List<Student>
 //    fun findByAgeOrderByName(age: Int, page: Page): List<Student>
 //    fun text() = "World"

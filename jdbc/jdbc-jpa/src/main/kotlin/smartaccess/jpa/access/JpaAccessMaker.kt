@@ -25,10 +25,6 @@ import smartaccess.access.AccessMaker.pageResultDescriptor
 import smartaccess.jpa.annotation.Lock
 import java.lang.reflect.Method
 import javax.inject.Named
-import kotlin.reflect.KParameter
-import kotlin.reflect.full.findAnnotation
-import kotlin.reflect.full.hasAnnotation
-import kotlin.reflect.javaType
 import kotlin.reflect.jvm.kotlinFunction
 
 object JpaAccessMaker : ServiceAccessMaker {
@@ -70,12 +66,6 @@ object JpaAccessMaker : ServiceAccessMaker {
         visitEnd()
     }
 
-    class MethodPara(
-        var name: String,
-        var stackSize: Int,
-        var stackNum: Int,
-        var type: String
-    )
 
     override fun MethodVisitor.makeSelect(
         method: Method,
@@ -93,16 +83,12 @@ object JpaAccessMaker : ServiceAccessMaker {
         val params = run {
             var num = 1
 
-            val names = method.kotlinFunction?.parameters?.filter { it.kind != KParameter.Kind.INSTANCE }
-                ?.map { it.findAnnotation<Named>()?.value ?: it.name }
-                ?: method.parameters.map { it.annotation<Named>()?.value ?: it.name }
-            method.parameters.mapIndexed {i,it->
-                val name = names.getOrNull(i) ?: "arg$i"
+            method.parameters.map {
                 val size = when (it.type) {
                     Long::class.javaPrimitiveType, Double::class.javaPrimitiveType -> 2
                     else -> 1
                 }
-                MethodPara(name,size, num, it.type.descriptor).also { num += size }
+                MethodPara(size, num, it.type.descriptor).also { num += size }
             }
         }
         val methodStack = (params.lastOrNull()?.let { it.stackNum + it.stackSize } ?: 0)
@@ -181,8 +167,8 @@ object JpaAccessMaker : ServiceAccessMaker {
             for (i in 0..<paramCount) {
                 val it = params[i]
                 visitVarInsn(ALOAD, queryIndex)
-//                visitIntInsn(i)
-                visitLdcInsn(it.name)
+                visitIntInsn(i + 1)
+//                visitLdcInsn(it.name)
                 it.type.let { type ->
                     visitVarInsn(getLoad(type), it.stackNum)
                     // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
@@ -196,7 +182,7 @@ object JpaAccessMaker : ServiceAccessMaker {
                     INVOKEINTERFACE,
                     queryFunOwner,
                     "setParameter",
-                    "(Ljava/lang/String;Ljava/lang/Object;)$queryFunDescriptor",
+                    "(ILjava/lang/Object;)$queryFunDescriptor",
                     true
                 )
             }
@@ -273,16 +259,12 @@ object JpaAccessMaker : ServiceAccessMaker {
         val queryIndex = method.parameterCount + 1
         val params = run {
             var num = 1
-            val names = method.kotlinFunction?.parameters?.filter { it.kind != KParameter.Kind.INSTANCE }
-                ?.map { it.findAnnotation<Named>()?.value ?: it.name }
-                ?: method.parameters.map { it.annotation<Named>()?.value ?: it.name }
-            method.parameters.mapIndexed {i,it->
-                val name = names.getOrNull(i) ?: "arg$i"
+            method.parameters.map {
                 val size = when (it.type) {
                     Long::class.javaPrimitiveType, Double::class.javaPrimitiveType -> 2
                     else -> 1
                 }
-                MethodPara(name,size, num, it.type.descriptor).also { num += size }
+                MethodPara(size, num, it.type.descriptor).also { num += size }
             }
         }
 
@@ -299,7 +281,7 @@ object JpaAccessMaker : ServiceAccessMaker {
 
         params.forEachIndexed { i, it ->
             visitVarInsn(ALOAD, queryIndex)
-            visitLdcInsn(it.name)
+            visitIntInsn(i + 1)
             it.type.let { type ->
                 visitVarInsn(getLoad(type), i + 1)
                 // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
@@ -313,7 +295,7 @@ object JpaAccessMaker : ServiceAccessMaker {
                 INVOKEINTERFACE,
                 queryOwner,
                 "setParameter",
-                "(Ljava/lang/String;Ljava/lang/Object;)$queryDescriptor",
+                "(ILjava/lang/Object;)$queryDescriptor",
                 true
             )
         }
@@ -326,7 +308,7 @@ object JpaAccessMaker : ServiceAccessMaker {
     }
 
     override fun AbstractQuery.serialize(moduleType: Class<*>): String =
-        toSqlString(moduleType.simpleName, needSelect = false, needName = true)
+        toSqlString(moduleType.simpleName, needSelect = false, needIndex = true)
 
     override fun Method.haveSelect(): String? = annotation<Select>()?.value
 
