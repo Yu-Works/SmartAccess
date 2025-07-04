@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import smartaccess.item.PageResult
 import smartaccess.jpa.access.JpaAsyncAccess
+import javax.inject.Named
 
 @Entity
 data class Student(
@@ -19,7 +20,8 @@ data class Student(
 )
 
 interface StudentAccess : JpaAccess<Student, Int> {
-    fun findByName(name: String): List<Student>
+    fun findByName(@Named("name") name: String): List<Student>
+    fun findByName(name: String, page: Page = Page(1,2)): PageResult<Student>
     fun deleteByName(name: String): Int
 //    fun findByAge(age: Int): List<Student>
 //    fun findByAgeOrderByName(age: Int, page: Page): List<Student>

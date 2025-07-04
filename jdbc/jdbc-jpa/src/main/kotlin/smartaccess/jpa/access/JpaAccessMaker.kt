@@ -24,6 +24,8 @@ import smartaccess.access.AccessMaker.pageDescriptor
 import smartaccess.access.AccessMaker.pageResultDescriptor
 import smartaccess.jpa.annotation.Lock
 import java.lang.reflect.Method
+import javax.inject.Named
+import kotlin.reflect.jvm.kotlinFunction
 
 object JpaAccessMaker : ServiceAccessMaker {
 
@@ -64,6 +66,7 @@ object JpaAccessMaker : ServiceAccessMaker {
         visitEnd()
     }
 
+
     override fun MethodVisitor.makeSelect(
         method: Method,
         implAccess: Class<*>,
@@ -79,6 +82,7 @@ object JpaAccessMaker : ServiceAccessMaker {
     ) {
         val params = run {
             var num = 1
+
             method.parameters.map {
                 val size = when (it.type) {
                     Long::class.javaPrimitiveType, Double::class.javaPrimitiveType -> 2
@@ -163,7 +167,8 @@ object JpaAccessMaker : ServiceAccessMaker {
             for (i in 0..<paramCount) {
                 val it = params[i]
                 visitVarInsn(ALOAD, queryIndex)
-                visitIntInsn(i)
+                visitIntInsn(i + 1)
+//                visitLdcInsn(it.name)
                 it.type.let { type ->
                     visitVarInsn(getLoad(type), it.stackNum)
                     // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。
@@ -276,7 +281,7 @@ object JpaAccessMaker : ServiceAccessMaker {
 
         params.forEachIndexed { i, it ->
             visitVarInsn(ALOAD, queryIndex)
-            visitIntInsn(i)
+            visitIntInsn(i + 1)
             it.type.let { type ->
                 visitVarInsn(getLoad(type), i + 1)
                 // 判断是否为基础数据类型，如果是基础数据类型则需要调用对应封装类型 valueOf 转换为封装类型。

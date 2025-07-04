@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.IceCreamQAQ.SmartAccess"
-version = "1.0.0-DEV4"
+version = "1.0.0-DEV5"
 
 repositories {
     mavenLocal()
@@ -38,7 +38,7 @@ subprojects {
 
     dependencies {
         implementation(kotlin("stdlib"))
-        implementation("com.IceCreamQAQ.Rain:application:1.0.0-DEV2")
+        implementation("com.IceCreamQAQ.Rain:application:1.0.0-DEV4")
     }
 
     configure<PublishingExtension> {
