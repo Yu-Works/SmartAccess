@@ -108,11 +108,13 @@ object JpaAccessMaker : ServiceAccessMaker {
         val havePage = method.parameters.isNotEmpty() && method.parameters.last().type == Page::class.java
         val paramCount = if (havePage) method.parameterCount - 1 else method.parameterCount
 
+        val pageParam = if (havePage) params.lastOrNull() else null
+
         visitVarInsn(ALOAD, 0)
         visitLdcInsn(query)
         if (isPage) {
             if (lock != null) visitFieldInsn(GETSTATIC, lockModeOwner, lock, lockModeDescriptor)
-            visitVarInsn(ALOAD, method.parameterCount)
+            visitVarInsn(ALOAD, pageParam!!.stackNum)
 
             visitIntInsn(paramCount)
             visitTypeInsn(ANEWARRAY, objectOwner)
