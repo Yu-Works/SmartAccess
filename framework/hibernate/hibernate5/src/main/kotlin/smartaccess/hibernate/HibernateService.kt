@@ -21,7 +21,7 @@ class HibernateService(
             models
         )
         val ddl = databaseMap[name]?.get("ddl")?.asString() ?: "update"
-        config.properties["hibernate.hbm2.auto"] = ddl
+        config.properties["hibernate.hbm2ddl.auto"] = ddl
         entityManagerFactoryMap[name] = EntityManagerFactoryBuilderImpl(
             PersistenceUnitInfoDescriptor(config),
             HashMap<String,Any>(),
