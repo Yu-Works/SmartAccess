@@ -127,6 +127,8 @@ object AccessMaker {
                 } ?: emptyList()
 
             access.allMethod.asSequence()
+                .filter { !it.isStatic }
+                .filter { !it.isSynthetic }
                 .filter { !it.isDefault }
                 .filter { it.name !in serviceAccessMaker.baseMethods }
                 .filter { it !in defaultMethods }
