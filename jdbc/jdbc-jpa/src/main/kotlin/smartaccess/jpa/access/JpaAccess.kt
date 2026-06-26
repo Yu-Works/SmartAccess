@@ -28,6 +28,7 @@ interface JpaAccess<T, PK : Serializable> : Access<T, PK> {
 
     fun get(id: PK): T?
     fun delete(id: PK)
+    fun delete(entity: T)
 
     fun save(entity: T)
     fun update(entity: T)

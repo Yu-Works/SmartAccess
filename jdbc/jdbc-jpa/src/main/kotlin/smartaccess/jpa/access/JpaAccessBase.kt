@@ -175,6 +175,10 @@ abstract class JpaAccessBase<T, PK : Serializable>(
         execute(deleteQueryString, id)
     }
 
+    override fun delete(entity: T) {
+        primaryKeyReader(entity)?.let { delete(it) }
+    }
+
     override fun get(id: PK): T? {
         return getEntityManager().find(modelType, id)
     }
