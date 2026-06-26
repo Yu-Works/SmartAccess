@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.IceCreamQAQ.SmartAccess"
-version = "1.0.0-DEV10"
+version = "1.0.0-DEV11"
 
 repositories {
     mavenLocal()
