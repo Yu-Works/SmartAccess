@@ -148,7 +148,7 @@ abstract class JpaAccessBase<T, PK : Serializable>(
     open fun query2countQuery(queryString: String): String {
         val index = queryString.indexOf("from")
         val end = queryString.indexOf("order by").let { if (it != -1) it - 1 else queryString.length }
-        return "select count(id) " + queryString.substring(index..end)
+        return "select count(id) " + queryString.substring(index ..< end)
     }
 
     override fun execute(queryString: String, vararg para: Any): Int {
