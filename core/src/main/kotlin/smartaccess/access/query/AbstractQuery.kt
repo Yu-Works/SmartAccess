@@ -6,7 +6,10 @@ class AbstractQuery(
     val queryType: Int,
     val optParams: List<String>,
     val wheres: List<WhereItem>,
-    val orderBys: List<OrderByItem>
+    val orderBys: List<OrderByItem>,
+    val forUpdate: Boolean = false,
+    val start: Int? = null,
+    val limit: Int? = null
 ) {
     fun toSqlString(
         table: String,
