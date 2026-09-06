@@ -1,8 +1,8 @@
 package smartaccess.item
 
 data class Page(
-    val start: Int,
-    val num: Int
+    val start: Int = 0,
+    val num: Int = 10
 ) {
 
     companion object {
