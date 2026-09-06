@@ -1,14 +1,11 @@
 package com.IceCreamQAQ.SmartAccess.hibernate.test
 
 import com.IceCreamQAQ.SmartAccess.hibernate.test.model.StudentAccess
-import kotlinx.coroutines.runBlocking
 import rain.application.FullStackApplicationLauncher
 import rain.application.events.AppStatusEvent
 import rain.event.annotation.EventListener
 import rain.event.annotation.SubscribeEvent
-import rain.function.cast
 import smartaccess.SmartAccess
-import smartaccess.jpa.JPAService
 import javax.inject.Inject
 
 @EventListener
@@ -32,7 +29,7 @@ class TestListener(
 //                studentAccess.save(Student(name = "1", age = 107))
 //                studentAccess.save(Student(name = "1", age = 108))
 //                println(studentAccess.deleteByName("2"))
-        println(studentAccess.findByName("1"))
+        println(studentAccess.findByNameLimit2("1"))
     }
 
 }

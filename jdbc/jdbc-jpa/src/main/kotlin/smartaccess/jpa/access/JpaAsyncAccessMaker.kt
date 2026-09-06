@@ -503,7 +503,23 @@ object JpaAsyncAccessMaker : ServiceAccessMaker {
         )
     }
 
-    override fun AbstractQuery.serialize(moduleType: Class<*>): String =
+    override fun MethodVisitor.makeAbstract(
+        method: Method,
+        implAccess: Class<*>,
+        access: Class<*>,
+        moduleType: Class<*>,
+        primaryKeyType: Class<*>,
+        query: AbstractQuery,
+        isList: Boolean,
+        isPage: Boolean,
+        isModel: Boolean,
+        realType: Class<*>,
+        suspendContextClass: String?
+    ) {
+        TODO("Not yet implemented")
+    }
+
+    fun AbstractQuery.serialize(moduleType: Class<*>): String =
         toSqlString(moduleType.simpleName, needSelect = false, needIndex = true)
 
     override fun Method.haveSelect(): String? = annotation<Select>()?.value

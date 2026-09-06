@@ -40,7 +40,20 @@ interface ServiceAccessMaker {
         suspendContextClass: String?
     )
 
-    fun AbstractQuery.serialize(moduleType: Class<*>): String
+    fun MethodVisitor.makeAbstract(
+        method: Method,
+        implAccess: Class<*>,
+        access: Class<*>,
+        moduleType: Class<*>,
+        primaryKeyType: Class<*>,
+        query: AbstractQuery,
+        isList: Boolean,
+        isPage: Boolean,
+        isModel: Boolean,
+        realType: Class<*>,
+        suspendContextClass: String?
+    )
+
 
     fun Method.haveSelect(): String?
     fun Method.haveExecute(): String?

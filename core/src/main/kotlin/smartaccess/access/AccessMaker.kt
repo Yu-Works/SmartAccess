@@ -184,31 +184,19 @@ object AccessMaker {
                         )
                     } ?: run {
                         MethodInterpreter(method.name).let { absQuery ->
-                            absQuery.serialize(moduleType).let {
-                                makeMethod().apply {
-                                    if (absQuery.queryType < 5) makeSelect(
-                                        method,
-                                        implAccess,
-                                        access,
-                                        moduleType,
-                                        primaryKeyType,
-                                        it,
-                                        isList,
-                                        isPage,
-                                        isModel,
-                                        realType,
-                                        suspendContextClass
-                                    ) else makeExecute(
-                                        method,
-                                        implAccess,
-                                        access,
-                                        moduleType,
-                                        primaryKeyType,
-                                        it,
-                                        suspendContextClass
-                                    )
-                                }
-                            }
+                            makeMethod().makeAbstract(
+                                method,
+                                implAccess,
+                                access,
+                                moduleType,
+                                primaryKeyType,
+                                absQuery,
+                                isList,
+                                isPage,
+                                isModel,
+                                realType,
+                                suspendContextClass
+                            )
                         }
                     }
                 }

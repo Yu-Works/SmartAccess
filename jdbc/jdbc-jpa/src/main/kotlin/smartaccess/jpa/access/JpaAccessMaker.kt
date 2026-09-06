@@ -66,23 +66,19 @@ object JpaAccessMaker : ServiceAccessMaker {
         visitEnd()
     }
 
-
-    override fun MethodVisitor.makeSelect(
+    fun MethodVisitor.makeSelect(
         method: Method,
         implAccess: Class<*>,
-        access: Class<*>,
         moduleType: Class<*>,
-        primaryKeyType: Class<*>,
         query: String,
+        lock: LockModeType?,
         isList: Boolean,
         isPage: Boolean,
+        limit: Int?,
         isModel: Boolean,
-        realType: Class<*>,
-        suspendContextClass: String?
-    ) {
+    ){
         val params = run {
             var num = 1
-
             method.parameters.map {
                 val size = when (it.type) {
                     Long::class.javaPrimitiveType, Double::class.javaPrimitiveType -> 2
@@ -93,8 +89,6 @@ object JpaAccessMaker : ServiceAccessMaker {
         }
         val methodStack = (params.lastOrNull()?.let { it.stackNum + it.stackSize } ?: 0)
         val hasWidth = params.any { it.stackSize == 2 }
-
-        val lock = method.getAnnotation(Lock::class.java)?.value?.name
 
         val queryIndex = methodStack
         val returnTypeDescription = method.returnType.descriptor
@@ -113,7 +107,7 @@ object JpaAccessMaker : ServiceAccessMaker {
         visitVarInsn(ALOAD, 0)
         visitLdcInsn(query)
         if (isPage) {
-            if (lock != null) visitFieldInsn(GETSTATIC, lockModeOwner, lock, lockModeDescriptor)
+            if (lock != null) visitFieldInsn(GETSTATIC, lockModeOwner, lock.name, lockModeDescriptor)
             visitVarInsn(ALOAD, pageParam!!.stackNum)
 
             visitIntInsn(paramCount)
@@ -211,11 +205,21 @@ object JpaAccessMaker : ServiceAccessMaker {
                     "(I)$queryFunDescriptor",
                     true
                 )
+            } else if (limit != null) {
+                visitVarInsn(ALOAD, queryIndex)
+                visitIntInsn(limit)
+                visitMethodInsn(
+                    INVOKEINTERFACE,
+                    queryFunOwner,
+                    "setMaxResults",
+                    "(I)$queryFunDescriptor",
+                    true
+                )
             }
 
             lock?.let {
                 visitVarInsn(ALOAD, queryIndex)
-                visitFieldInsn(GETSTATIC, lockModeOwner, lock, lockModeDescriptor)
+                visitFieldInsn(GETSTATIC, lockModeOwner, lock.name, lockModeDescriptor)
                 visitMethodInsn(
                     INVOKEINTERFACE,
                     queryFunOwner,
@@ -248,6 +252,21 @@ object JpaAccessMaker : ServiceAccessMaker {
 
         visitEnd()
     }
+
+
+    override fun MethodVisitor.makeSelect(
+        method: Method,
+        implAccess: Class<*>,
+        access: Class<*>,
+        moduleType: Class<*>,
+        primaryKeyType: Class<*>,
+        query: String,
+        isList: Boolean,
+        isPage: Boolean,
+        isModel: Boolean,
+        realType: Class<*>,
+        suspendContextClass: String?
+    ) = makeSelect(method, implAccess, moduleType, query, method.annotation<Lock>()?.value, isList, isPage, null, isModel)
 
     override fun MethodVisitor.makeExecute(
         method: Method,
@@ -309,7 +328,26 @@ object JpaAccessMaker : ServiceAccessMaker {
         visitEnd()
     }
 
-    override fun AbstractQuery.serialize(moduleType: Class<*>): String =
+    override fun MethodVisitor.makeAbstract(
+        method: Method,
+        implAccess: Class<*>,
+        access: Class<*>,
+        moduleType: Class<*>,
+        primaryKeyType: Class<*>,
+        query: AbstractQuery,
+        isList: Boolean,
+        isPage: Boolean,
+        isModel: Boolean,
+        realType: Class<*>,
+        suspendContextClass: String?
+    ) {
+        val queryString = query.serialize(moduleType)
+        val lock = method.annotation<Lock>()?.value ?: query.forUpdate.takeIf { it }?.let { LockModeType.PESSIMISTIC_WRITE }
+        val limit = query.limit
+        makeSelect(method, implAccess, moduleType, queryString, lock, isList, isPage, limit, isModel)
+    }
+
+    fun AbstractQuery.serialize(moduleType: Class<*>): String =
         toSqlString(moduleType.simpleName, needSelect = false, needIndex = true)
 
     override fun Method.haveSelect(): String? = annotation<Select>()?.value
